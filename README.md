@@ -7,7 +7,7 @@
 
 32-bit.
 
-Big endian, eg. value `0xABCDEF` in memory: `[ ... +0: 0xAB, +1: 0xCD, +2: 0xEF ... ]`.
+Big endian, eg. value `0xABCDEF` as bytes in memory: `[0xAB, 0xCD, 0xEF]`.
 
 ### Instructions
 
@@ -42,17 +42,29 @@ Big endian, eg. value `0xABCDEF` in memory: `[ ... +0: 0xAB, +1: 0xCD, +2: 0xEF 
 
 #### NOP
 
-```
-0x00
-```
+Opcode | Instruction | Description
+---|---|---
+`0x00` | NOP | Do nothing
 
 #### HLT
 
-```
-0x01
-```
+Opcode | Instruction | Description
+---|---|---
+`0x01` | HLT | Halt execution
 
 #### MOV
+Move values to registers, values to memory, registers to registers, registers to memory, memory to registers.
+Cannot move from directly from memory to memory.
+Opcode | Instruction | Description
+---|---|---
+`0x02 0b0000 reg1 reg2` | MOV reg1 reg2 | reg1 = reg2
+`0x02 0b0001 reg 0b00 imm` | MOV reg imm | reg = imm
+`0x02 0b0010 reg1 reg2` | MOV reg1 [reg2] | reg1 = memory[reg2]
+`0x02 0b0011 reg 0b00 imm` | MOV reg [imm] | reg = memory[imm]
+`0x02 0b1000 reg1 reg2` | MOV [reg1] reg2 | memory[reg1] = reg2
+`0x02 0b1001 reg 0b00 imm` | MOV [reg] imm | memory[reg1] = imm
+`0x02 0b110000 reg2 imm` | MOV [imm] reg2 | memory[imm] = reg2
+`0x02 0b110100000 imm imm` | MOV [imm] imm | memory[imm] = imm
 
 ```
 0x02 0bxxyyddss
@@ -96,7 +108,7 @@ Flags in `fl`-regiser are set accordingly.
 `aa` is target register, if applicable.
 Immidiates are appended if applicable, destination first.
 
-#### JZ  JNZ JEQ JNE JLT JLE JGT JGE
+#### JZ, JNZ, JEQ, JNE, JLT, JLE, JGT, JGE
 
 ```
 0xkk 0bzzyyaass
@@ -110,6 +122,8 @@ Immidiates are appended if applicable, destination first.
 
 ### Data selection
 
+Any selector in an opcode, is replaced by one of:
+
 ```
 00  register
 01  immidiate
@@ -118,6 +132,8 @@ Immidiates are appended if applicable, destination first.
 ```
 
 ### Registers
+
+Any `reg` in an opcode, is replaced by one of:
 
 ```
 00  r0  gp 0
