@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+mod set;
+
 use std::str::Chars;
 
 #[derive(Clone)]
@@ -212,58 +214,6 @@ impl<'a> Iterator for Lexer<'a> {
     }
 }
 
-enum Mnemonic {
-    Nop,
-    Hlt,
-    Mov,
-    Or,
-    And,
-    Xor,
-    Not,
-    Shl,
-    Shr,
-    Add,
-    Sub,
-    Mul,
-    Imul,
-    Div,
-    Idiv,
-    Rem,
-    Cmp,
-    Jmp,
-    Jz,
-    Jnz,
-    Jeq,
-    Jne,
-    Jlt,
-    Jle,
-    Jgt,
-    Jge,
-}
-
-enum Register {
-    R0,
-    R1,
-    Fl,
-    Pc,
-}
-
-enum Operand {
-    Register(Register),
-    Immidiate(i32),
-    AddressRegister(Register),
-    AddressImmidate(u32),
-}
-
-struct Instruction {
-    mnemonic: Mnemonic,
-    operands: Vec<Operand>,
-}
-
-enum Line {
-    Instruction(Instruction),
-}
-
 struct Parser<'a> {
     text: &'a str,
     lexer: Lexer<'a>,
@@ -283,6 +233,10 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn parse_line(&mut self) -> Result<Line, ()> {
+        Err(())
+    }
+
     fn add_error<S: Into<String>>(&mut self, pos: Pos, message: S) {
         self.errors.push(Error {
             pos: pos.clone(),
@@ -290,11 +244,17 @@ impl<'a> Parser<'a> {
         });
     }
 
+    fn step(&mut self) {
+        self.current = self.lexer.next();
+    }
+
     pub fn errors(mut self) -> Vec<Error> {
         self.errors.append(&mut self.lexer.errors);
         self.errors
     }
 }
+
+struct Emitter;
 
 fn main() {
     println!("Hello, world!");
