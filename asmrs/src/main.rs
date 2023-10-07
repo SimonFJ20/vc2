@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+mod emit;
 mod set;
 
 use std::str::Chars;
