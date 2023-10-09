@@ -64,7 +64,7 @@ Opcode | Instruction | Description
 `0x02 0b1000 reg1 reg2` | MOV [reg1] reg2 | memory[reg1] = reg2
 `0x02 0b1001 reg 0b00 imm` | MOV [reg] imm | memory[reg1] = imm
 `0x02 0b110000 reg2 imm` | MOV [imm] reg2 | memory[imm] = reg2
-`0x02 0b110100000 imm imm` | MOV [imm] imm | memory[imm] = imm
+`0x02 0b110100000 imm1 imm2` | MOV [imm1] imm2 | memory[imm1] = imm2
 
 ```
 0x02 0bxxyyddss
@@ -87,7 +87,7 @@ Opcode | Instruction | Description
 `0xkk 0b1000 reg1 reg2` | OP [reg1] reg2 | memory[reg1] = memory[reg1] op reg2
 `0xkk 0b1001 reg 0b00 imm` | OP [reg] imm | memory[reg1] = memory[reg1] op imm
 `0xkk 0b110000 reg2 imm` | OP [imm] reg2 | memory[imm] = memory[imm] op reg2
-`0xkk 0b110100000 imm imm` | OP [imm] imm | memory[imm] = memory[imm] op imm
+`0xkk 0b110100000 imm1 imm2` | OP [imm1] imm2 | memory[imm1] = memory[imm1] op imm2
 
 ```
 0xkk 0b00yyddss
@@ -132,10 +132,22 @@ Opcode | Instruction | Description
 
 `zz` is target select.
 `aa` is target register, if applicable.
-`r` is relative/absolute switch, `1` if absolute else `0`.
+`r` is relative/absolute switch, `1` if absolute, else `0`.
 Immidiates are appended if applicable, destination first.
 
 #### JZ, JNZ, JEQ, JNE, JLT, JLE, JGT, JGE
+
+Opcode | Instruction | Description
+---|---|---
+`0xkk 0b0000 reg1 reg2` | JCC reg1 reg2 | pc = reg1 if reg2 != 0
+`0xkk 0b0001 reg1 0b00 imm` | JCC reg1 imm | pc = reg1 if imm != 0
+`0xkk 0b0010 reg1 reg2` | JCC reg1 [reg2] | pc = reg1 if [reg2] != 0
+`0xkk 0b0011 reg1 0b00` | JCC reg1 [imm] | pc = reg1 if [imm] != 0
+`0xkk 0b1000 reg1 reg2` | JCC [reg1] reg2 | pc = [reg1] if reg2 != 0
+`0xkk 0b1001 reg1 0b00 imm` | JCC [reg1] imm | pc = [reg1] if imm != 0
+`0xkk 0b110000 reg2 imm` | JCC [imm] reg2 | pc = [imm] if reg2 != 0
+`0xkk 0b110100 0b00 imm1 imm2` | JCC [imm1] imm2 | pc = [imm1] if imm2 != 0
+
 
 ```
 0xkk 0bzzyyaass
@@ -179,4 +191,20 @@ Any `reg` in an opcode, is replaced by one of:
 4   carry
 5   borrow
 ```
+
+### Memory layout and mappings
+
+Address | Description
+---|---
+`0x0000..0x1000` | Program memory
+`0x1000..0x2000` | General purpose
+`0x2010` | Enable timer (Write sentitive)
+`0x2011` | Timer callback address
+`0x2020` | Keyboard enabled. `1` if enabled, else `0`
+`0x2021` | Key event happened. `1` if press, `2` if release, else `0`
+`0x2022` | Keycode
+`0x2030` | Screen video output enabled. `1` if enabled, else `0`
+`0x2031` | VRAM address
+`0x2032` | Screen resolution width
+`0x2033` | Screen resolution height
 
