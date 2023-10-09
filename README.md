@@ -199,7 +199,7 @@ Address | Description
 `0x0000..0x1000` | Program memory
 `0x1000..0x2000` | General purpose
 `0x2010` | Enable timer (Write sentitive)
-`0x2011` | Timer callback address
+`0x2011` | Timer callback address (Write sentitive)
 `0x2020` | Keyboard enabled. `1` if enabled, else `0`
 `0x2021` | Key event happened. `1` if press, `2` if release, else `0`
 `0x2022` | Keycode
