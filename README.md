@@ -203,7 +203,7 @@ Address | Description
 `0x2020` | Keyboard enabled. `1` if enabled, else `0`
 `0x2021` | Key event happened. `1` if press, `2` if release, else `0`
 `0x2022` | Keycode
-`0x2023` | Key event callback address. `0` disables (Write sentitive)
+`0x2023` | Key event callback address. `0` disables callback (Write sentitive)
 `0x2030` | Screen video output enabled. `1` if enabled, else `0`
 `0x2031` | VRAM address
 `0x2032` | Screen resolution width
