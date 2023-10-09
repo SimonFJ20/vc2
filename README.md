@@ -78,6 +78,17 @@ Immidiates are appended if applicable, destination first.
 
 #### OR, AND, XOR, SHL, SHR, ADD, SUB, MUL, IMUL, DIV, IDIV, REM, CMP
 
+Opcode | Instruction | Description
+---|---|---
+`0xkk 0b0000 reg1 reg2` | OP reg1 reg2 | reg1 = reg1 op reg2
+`0xkk 0b0001 reg 0b00 imm` | OP reg imm | reg = reg op imm
+`0xkk 0b0010 reg1 reg2` | OP reg1 [reg2] | reg1 = reg1 op memory[reg2]
+`0xkk 0b0011 reg 0b00 imm` | OP reg [imm] | reg = reg op memory[imm]
+`0xkk 0b1000 reg1 reg2` | OP [reg1] reg2 | memory[reg1] = memory[reg1] op reg2
+`0xkk 0b1001 reg 0b00 imm` | OP [reg] imm | memory[reg1] = memory[reg1] op imm
+`0xkk 0b110000 reg2 imm` | OP [imm] reg2 | memory[imm] = memory[imm] op reg2
+`0xkk 0b110100000 imm imm` | OP [imm] imm | memory[imm] = memory[imm] op imm
+
 ```
 0xkk 0b00yyddss
 ```
@@ -92,6 +103,10 @@ Flags in `fl`-regiser are set accordingly.
 
 #### NOT
 
+Opcode | Instruction | Description
+---|---|---
+`0x06 0b0000 reg 0b00` | NOT reg | reg = not reg
+
 ```
 0x06 0b0000dd00
 ```
@@ -100,12 +115,24 @@ Flags in `fl`-regiser are set accordingly.
 
 #### JMP
 
+Opcode | Instruction | Description
+---|---|---
+`0x11 0b0000 reg 0b00` | JMP reg | pc += reg
+`0x11 0b0100 reg 0b00 imm` | JMP imm | pc += imm
+`0x11 0b1000 reg 0b00` | JMP [reg] | pc += [reg]
+`0x11 0b1100 reg 0b00 imm` | JMP [imm] | pc += [imm]
+`0x11 0b0000 reg 0b01` | JMP reg | pc = reg
+`0x11 0b0100 reg 0b01 imm` | JMP imm | pc = imm
+`0x11 0b1000 reg 0b01` | JMP [reg] | pc = [reg]
+`0x11 0b1100 reg 0b01 imm` | JMP [imm] | pc = [imm]
+
 ```
-0x11 0bzz00aa00
+0x11 0bzz00aa0r
 ```
 
 `zz` is target select.
 `aa` is target register, if applicable.
+`r` is relative/absolute switch, `1` if absolute else `0`.
 Immidiates are appended if applicable, destination first.
 
 #### JZ, JNZ, JEQ, JNE, JLT, JLE, JGT, JGE
