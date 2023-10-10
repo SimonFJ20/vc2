@@ -126,6 +126,8 @@ Opcode | Instruction | Description
 `0x11 0b1000 reg 0b01` | JMP [reg] | pc = [reg]
 `0x11 0b1100 reg 0b01 imm` | JMP [imm] | pc = [imm]
 
+Relative jumps are relative to the jump instruction's address.
+
 ```
 0x11 0bzz00aa0r
 ```
@@ -139,15 +141,16 @@ Immidiates are appended if applicable, destination first.
 
 Opcode | Instruction | Description
 ---|---|---
-`0xkk 0b0000 reg1 reg2` | JCC reg1 reg2 | pc = reg1 if reg2 != 0
-`0xkk 0b0001 reg1 0b00 imm` | JCC reg1 imm | pc = reg1 if imm != 0
-`0xkk 0b0010 reg1 reg2` | JCC reg1 [reg2] | pc = reg1 if [reg2] != 0
-`0xkk 0b0011 reg1 0b00` | JCC reg1 [imm] | pc = reg1 if [imm] != 0
-`0xkk 0b1000 reg1 reg2` | JCC [reg1] reg2 | pc = [reg1] if reg2 != 0
-`0xkk 0b1001 reg1 0b00 imm` | JCC [reg1] imm | pc = [reg1] if imm != 0
-`0xkk 0b110000 reg2 imm` | JCC [imm] reg2 | pc = [imm] if reg2 != 0
-`0xkk 0b110100 0b00 imm1 imm2` | JCC [imm1] imm2 | pc = [imm1] if imm2 != 0
+`0xkk 0b0000 reg1 reg2` | JCC reg1 reg2 | pc = reg1 if CC(reg2)
+`0xkk 0b0001 reg1 0b00 imm` | JCC reg1 imm | pc = reg1 if CC(imm)
+`0xkk 0b0010 reg1 reg2` | JCC reg1 [reg2] | pc = reg1 if CC([reg2])
+`0xkk 0b0011 reg1 0b00` | JCC reg1 [imm] | pc = reg1 if CC([imm])
+`0xkk 0b1000 reg1 reg2` | JCC [reg1] reg2 | pc = [reg1] if CC(reg2)
+`0xkk 0b1001 reg1 0b00 imm` | JCC [reg1] imm | pc = [reg1] if CC(imm)
+`0xkk 0b110000 reg2 imm` | JCC [imm] reg2 | pc = [imm] if CC(reg2)
+`0xkk 0b110100 0b00 imm1 imm2` | JCC [imm1] imm2 | pc = [imm1] if CC(imm2)
 
+Conditional jumps are relative to the jump instruction's address.
 
 ```
 0xkk 0bzzyyaass
@@ -198,14 +201,14 @@ Address | Description
 ---|---
 `0x0000..0x1000` | Program memory
 `0x1000..0x2000` | General purpose
-`0x2010` | Enable timer (Write sentitive)
-`0x2011` | Timer callback address (Write sentitive)
-`0x2020` | Keyboard enabled. `1` if enabled, else `0`
-`0x2021` | Key event happened. `1` if press, `2` if release, else `0`
-`0x2022` | Keycode
-`0x2023` | Key event callback address. `0` disables callback (Write sentitive)
-`0x2030` | Screen video output enabled. `1` if enabled, else `0`
-`0x2031` | VRAM address
-`0x2032` | Screen resolution width
-`0x2033` | Screen resolution height
+`0x2010` | Enable timer (Write)
+`0x2014` | Timer callback address (Write)
+`0x2020` | Keyboard enabled. `1` if enabled, else `0` (Read)
+`0x2024` | Key event happened. `1` if press, `2` if release, else `0` (Read)
+`0x2028` | Keycode (Read)
+`0x202c` | Key event callback address. `0` disables callback (Write)
+`0x2030` | Screen video output enabled. `1` if enabled, else `0` (Read)
+`0x2034` | VRAM address (Read)
+`0x2038` | Screen resolution width (Read)
+`0x203c` | Screen resolution height (Read)
 
