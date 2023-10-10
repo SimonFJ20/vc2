@@ -90,10 +90,11 @@ Opcode | Instruction | Description
 `0xkk 0b110100000 imm1 imm2` | OP [imm1] imm2 | memory[imm1] = memory[imm1] op imm2
 
 ```
-0xkk 0b00yyddss
+0xkk 0bxxyyddss
 ```
 
 `kk` is instruction selector.
+`xx` is destination select.
 `yy` is source select.
 `dd` is destination register.
 `ss` is source register, if applicable.
