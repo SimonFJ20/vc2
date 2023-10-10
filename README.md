@@ -11,34 +11,34 @@ Big endian, eg. value `0xABCDEF` as bytes in memory: `[0xAB, 0xCD, 0xEF]`.
 
 ### Instructions
 
-```
-00  nop
-01  hlt
-02  mov
-03  or
-04  and
-05  xor
-06  not
-07  shl
-08  shr
-09  add
-0A  sub
-0B  mul
-0C  imul
-0D  div
-0E  idiv
-0F  rem
-10  cmp
-11  jmp
-12  jz 
-13  jnz
-14  jeq
-15  jne
-16  jlt
-17  jle
-18  jgt
-19  jge
-```
+Opcode | Mnemonic | Description
+---|---|---
+`0x00` | `nop` | Do nothing, continue
+`0x01` | `hlt` | Stop
+`0x02` | `mov` | Move data, from/to registers and memory
+`0x03` | `or` | Or `a \| b`
+`0x04` | `and` | And `a & b`
+`0x05` | `xor` | Xor `a xor b`
+`0x06` | `not` | Not `~a`
+`0x07` | `shl` | Shift left `a << b`
+`0x08` | `shr` | Shift right `a >> b`
+`0x09` | `add` | Add `a + b`
+`0x0A` | `sub` | Subtract `a - b`
+`0x0B` | `mul` | Multiply __u__nsigned `a * b`
+`0x0C` | `imul` | Multiply __s__igned `a * b`
+`0x0D` | `div` | Division __u__nsigned `a / b`
+`0x0E` | `idiv` | Division __s__signed `a / b`
+`0x0F` | `rem` | Calculator remainder (modulo) `a % b`
+`0x10` | `cmp` | Compare values
+`0x11` | `jmp` | Jump relative or absolute
+`0x12` | `jz` | Jump if zero
+`0x13` | `jnz` | Jump if not zero
+`0x14` | `jeq` | Jump if equal
+`0x15` | `jne` | Jump if not equal
+`0x16` | `jlt` | Jump if less than
+`0x17` | `jle` | Jump if less than or equal
+`0x18` | `jgt` | Jump if greater than
+`0x19` | `jge` | Jump if greater than or equal
 
 #### NOP
 
