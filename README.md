@@ -203,10 +203,10 @@ Address | Description
 ---|---
 `0x0000..0x1000` | Program memory
 `0x1000..0x2000` | General purpose
-`0x2010` | Enable timer (Write)
-`0x2014` | Timer countdown time [µs] (Write)
-`0x2018` | Timer callback address (Write)
-`0x201c` | Current time [µs] (Read)
+`0x2010` | Current time [µs] (Read)
+`0x2014` | Enable timer (Write)
+`0x2018` | Timer countdown time [µs] (Write)
+`0x201c` | Timer callback address (Write)
 `0x2020` | Keyboard enabled. `1` if enabled, else `0` (Read)
 `0x2024` | Key event happened. `1` if press, `2` if release, else `0` (Read)
 `0x2028` | Keycode (Read)
