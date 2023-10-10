@@ -188,8 +188,8 @@ Any selector in an opcode, is replaced by one of:
 Any `reg` in an opcode, is replaced by one of:
 
 ```
-00  r0  gp 0
-01  r1  gp 1
+00  r0  general purpose, result
+01  r1  general purpose, operand
 10  fl  flags
 11  pc  program counter
 ```
