@@ -15,21 +15,21 @@ Opcode | Mnemonic | Description
 ---|---|---
 `0x00` | `nop` | Do nothing, continue
 `0x01` | `hlt` | Stop
-`0x02` | `mov` | Move data, from/to registers and memory
-`0x03` | `or` | Or `a \| b`
-`0x04` | `and` | And `a & b`
-`0x05` | `xor` | Xor `a xor b`
-`0x06` | `not` | Not `~a`
-`0x07` | `shl` | Shift left `a << b`
-`0x08` | `shr` | Shift right `a >> b`
-`0x09` | `add` | Add `a + b`
-`0x0a` | `sub` | Subtract `a - b`
-`0x0b` | `mul` | Multiply unsigned `a * b`
-`0x0c` | `imul` | Multiply signed `a * b`
-`0x0d` | `div` | Unsigned integer division `a / b`
-`0x0e` | `idiv` | Signed integer division `a / b`
-`0x0f` | `rem` | Calculator remainder (modulo) `a % b`
-`0x10` | `cmp` | Compare values
+`0x02` | `mov` | Move data, from/to registers and memory, `a = b`
+`0x03` | `or` | Or, `a \| b`
+`0x04` | `and` | And, `a & b`
+`0x05` | `xor` | Xor, `a xor b`
+`0x06` | `not` | Not, `~a`
+`0x07` | `shl` | Shift left, `a << b`
+`0x08` | `shr` | Shift right, `a >> b`
+`0x09` | `add` | Add, `a + b`
+`0x0a` | `sub` | Subtract, `a - b`
+`0x0b` | `mul` | Multiply unsigned, `a * b`
+`0x0c` | `imul` | Multiply signed, `a * b`
+`0x0d` | `div` | Unsigned integer division, `a / b`
+`0x0e` | `idiv` | Signed integer division, `a / b`
+`0x0f` | `rem` | Calculator remainder (modulo), `a % b`
+`0x10` | `cmp` | Compare values, `a == b`, `a < b`
 `0x11` | `jmp` | Jump relative or absolute
 `0x12` | `jz` | Jump if zero
 `0x13` | `jnz` | Jump if not zero
