@@ -74,7 +74,7 @@ Opcode | Instruction | Description
 `yy` is source select.
 `dd` is destination register, if applicable.
 `ss` is source register, if applicable.
-Immidiates are appended if applicable, destination first.
+Immediates are appended if applicable, destination first.
 
 #### OR, AND, XOR, SHL, SHR, ADD, SUB, MUL, IMUL, DIV, IDIV, REM, CMP
 
@@ -98,7 +98,7 @@ Opcode | Instruction | Description
 `yy` is source select.
 `dd` is destination register.
 `ss` is source register, if applicable.
-Immidiates are appended if applicable, destination first.
+Immediates are appended if applicable, destination first.
 Flags in `fl` regiser are set according to [the table](#flags).
 The `cmp` instruction persists the destination.
 The `add` and `sub` instructions, use the flags in the `fl` register as input. 
@@ -137,7 +137,7 @@ Relative jumps are relative to the jump instruction's address.
 `zz` is target select.
 `aa` is target register, if applicable.
 `r` is relative/absolute switch, `1` if absolute, else `0`.
-Immidiates are appended if applicable, destination first.
+Immediates are appended if applicable, destination first.
 
 #### JZ, JNZ, JEQ, JNE, JLT, JLE, JGT, JGE
 
@@ -162,7 +162,7 @@ Conditional jumps are relative to the jump instruction's address.
 `yy` is source select.
 `aa` is target register, if applicable.
 `ss` is source register, if applicable.
-Immidiates are appended if applicable, destination first.
+Immediates are appended if applicable, destination first.
 
 ### Data selection
 
@@ -171,9 +171,9 @@ Any selector in an opcode, is replaced by one of:
 Selector | Description
 ---|---
 `0b00` | Register
-`0b01` | Immidiate
+`0b01` | Immediate
 `0b10` | Register address
-`0b11` | Immidiate address
+`0b11` | Immediate address
 
 ### Registers
 
