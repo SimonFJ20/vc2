@@ -192,7 +192,7 @@ Selector | Mnemonic | Description
 Bit | Hex mask | Description | Value
 ---|---|---|---
 `0` | `0x1` | Overflow | If result is too large to fit in the destination, unless Carry/borrow suffices
-`1` | `0x2` | Carry/borrow | If op in [add, subtract], the result constitutes a carry or subtract, and no information is discarded.
+`1` | `0x2` | Carry/borrow | If op in [add, subtract], the result constitutes a carry or subtract.
 `2` | `0x4` | Equal | if op == cmp, if destination == source
 `3` | `0x8` | Less | if op == cmp, if destination < source
 
