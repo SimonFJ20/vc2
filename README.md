@@ -187,12 +187,12 @@ Any selector in an opcode, is replaced by one of:
 
 Any `reg` in an opcode, is replaced by one of:
 
-```
-00  r0  general purpose, result
-01  r1  general purpose, operand
-10  fl  flags
-11  pc  program counter
-```
+Selector | Mnemonic | Description
+---|---|---
+`00` | `r0` | General purpose, result
+`01` | `r1` | General purpose, operand
+`10` | `fl` | Flags
+`11` | `pc` | Program counter
 
 ### Flags
 
