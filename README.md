@@ -176,13 +176,12 @@ Immidiates are appended if applicable, destination first.
 
 Any selector in an opcode, is replaced by one of:
 
-Selector | Mnemonic | Description
+Selector | Description
 ---|---|---
 `0b00` | Register
 `0b01` | Immidiate
 `0b10` | Register address
 `0b11` | Immidiate address
-```
 
 ### Registers
 
