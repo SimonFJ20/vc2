@@ -100,16 +100,9 @@ Opcode | Instruction | Description
 `ss` is source register, if applicable.
 Immidiates are appended if applicable, destination first.
 
-Flags in `fl`-regiser are set accordingly.
+Flags in `fl`-regiser are set according to [the table](#flags).
 
 The `cmp` instruction persists the destination.
-
-Bit | Description | Value
----|---|---
-`0` | Overflow | If result is too large to fit in the destination, unless Carry/borrow suffices
-`1` | Carry/borrow | If op in [add, subtract], the result constitutes a carry or subtract, and no information is discarded.
-`2` | Equal | if op == cmp, if destination == source
-`3` | Less | if op == cmp, if destination < source
 
 #### NOT
 
@@ -177,7 +170,7 @@ Immidiates are appended if applicable, destination first.
 Any selector in an opcode, is replaced by one of:
 
 Selector | Description
----|---|---
+---|---
 `0b00` | Register
 `0b01` | Immidiate
 `0b10` | Register address
@@ -196,12 +189,12 @@ Selector | Mnemonic | Description
 
 ### Flags
 
-```
-0   overflow
-1   carry/borrow
-2   equal
-3   less
-```
+Bit | Hex mask | Description | Value
+---|---|---|---
+`0` | `0x1` | Overflow | If result is too large to fit in the destination, unless Carry/borrow suffices
+`1` | `0x2` | Carry/borrow | If op in [add, subtract], the result constitutes a carry or subtract, and no information is discarded.
+`2` | `0x4` | Equal | if op == cmp, if destination == source
+`3` | `0x8` | Less | if op == cmp, if destination < source
 
 ### Memory layout and mappings
 
