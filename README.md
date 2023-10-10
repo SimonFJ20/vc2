@@ -102,6 +102,11 @@ Immidiates are appended if applicable, destination first.
 
 Flags in `fl`-regiser are set accordingly.
 
+Bit | Description | Value
+---|---|---
+`0` | Overflow | If result is too large to fit in the destination, unless Carry/borrow suffices
+`1` | Carry/borrow | If operation is add or subtract, the result constitutes a carry or subtract, and no information is discarded.
+
 #### NOT
 
 Opcode | Instruction | Description
@@ -188,12 +193,8 @@ Any `reg` in an opcode, is replaced by one of:
 ### Flags
 
 ```
-0   zero
-1   less
-2   equal
-3   overflow
-4   carry
-5   borrow
+0   overflow
+1   carry/borrow
 ```
 
 ### Memory layout and mappings
