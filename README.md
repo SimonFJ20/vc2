@@ -102,10 +102,14 @@ Immidiates are appended if applicable, destination first.
 
 Flags in `fl`-regiser are set accordingly.
 
+The `cmp` instruction persists the destination.
+
 Bit | Description | Value
 ---|---|---
 `0` | Overflow | If result is too large to fit in the destination, unless Carry/borrow suffices
-`1` | Carry/borrow | If operation is add or subtract, the result constitutes a carry or subtract, and no information is discarded.
+`1` | Carry/borrow | If op in [add, subtract], the result constitutes a carry or subtract, and no information is discarded.
+`2` | Equal | if op == cmp, if destination == source
+`3` | Less | if op == cmp, if destination < source
 
 #### NOT
 
@@ -195,6 +199,8 @@ Any `reg` in an opcode, is replaced by one of:
 ```
 0   overflow
 1   carry/borrow
+2   equal
+3   less
 ```
 
 ### Memory layout and mappings
