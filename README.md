@@ -24,10 +24,10 @@ Opcode | Mnemonic | Description
 `0x08` | `shr` | Shift right `a >> b`
 `0x09` | `add` | Add `a + b`
 `0x0A` | `sub` | Subtract `a - b`
-`0x0B` | `mul` | Multiply __u__nsigned `a * b`
-`0x0C` | `imul` | Multiply __s__igned `a * b`
-`0x0D` | `div` | Division __u__nsigned `a / b`
-`0x0E` | `idiv` | Division __s__signed `a / b`
+`0x0B` | `mul` | Multiply unsigned `a * b`
+`0x0C` | `imul` | Multiply signed `a * b`
+`0x0D` | `div` | Unsigned integer division `a / b`
+`0x0E` | `idiv` | Signed integer division `a / b`
 `0x0F` | `rem` | Calculator remainder (modulo) `a % b`
 `0x10` | `cmp` | Compare values
 `0x11` | `jmp` | Jump relative or absolute
