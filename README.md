@@ -176,11 +176,12 @@ Immidiates are appended if applicable, destination first.
 
 Any selector in an opcode, is replaced by one of:
 
-```
-00  register
-01  immidiate
-10  register address
-11  immidiate address
+Selector | Mnemonic | Description
+---|---|---
+`0b00` | Register
+`0b01` | Immidiate
+`0b10` | Register address
+`0b11` | Immidiate address
 ```
 
 ### Registers
@@ -189,10 +190,10 @@ Any `reg` in an opcode, is replaced by one of:
 
 Selector | Mnemonic | Description
 ---|---|---
-`00` | `r0` | General purpose, result
-`01` | `r1` | General purpose, operand
-`10` | `fl` | Flags
-`11` | `pc` | Program counter
+`0b00` | `r0` | General purpose, result
+`0b01` | `r1` | General purpose, operand
+`0b10` | `fl` | Flags
+`0b11` | `pc` | Program counter
 
 ### Flags
 
