@@ -99,10 +99,9 @@ Opcode | Instruction | Description
 `dd` is destination register.
 `ss` is source register, if applicable.
 Immidiates are appended if applicable, destination first.
-
-Flags in `fl`-regiser are set according to [the table](#flags).
-
+Flags in `fl` regiser are set according to [the table](#flags).
 The `cmp` instruction persists the destination.
+The `add` and `sub` instructions, use the flags in the `fl` register as input. 
 
 #### NOT
 
