@@ -176,7 +176,7 @@ Any `reg` in an opcode, is replaced by one of:
 Selector | Mnemonic | Description
 ---|---|---
 `0b00` | `r0` | General purpose, result
-`0b01` | `r1` | General purpose, operand
+`0b01` | `r1` | General purpose, operand/address
 `0b10` | `fl` | Flags
 `0b11` | `pc` | Program counter
 
