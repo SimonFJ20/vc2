@@ -33,12 +33,6 @@ Opcode | Mnemonic | Description
 `0x11` | `jmp` | Jump relative or absolute
 `0x12` | `jz` | Jump if zero
 `0x13` | `jnz` | Jump if not zero
-`0x14` | `jeq` | Jump if equal
-`0x15` | `jne` | Jump if not equal
-`0x16` | `jlt` | Jump if less than
-`0x17` | `jle` | Jump if less than or equal
-`0x18` | `jgt` | Jump if greater than
-`0x19` | `jge` | Jump if greater than or equal
 
 #### NOP
 
@@ -139,7 +133,7 @@ Relative jumps are relative to the jump instruction's address.
 `r` is relative/absolute switch, `1` if absolute, else `0`.
 Immediates are appended if applicable, destination first.
 
-#### JZ, JNZ, JEQ, JNE, JLT, JLE, JGT, JGE
+#### JZ, JNZ
 
 Opcode | Instruction | Description
 ---|---|---
