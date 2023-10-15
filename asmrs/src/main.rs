@@ -24,8 +24,28 @@ enum Mnemonic {
     Jnz,
 }
 
+enum ParsedLine {
+    Instruction {
+        label: Option<String>,
+        instruction: Option<ParsedInstruction>,
+    },
+    Include {
+        path: String,
+    },
+    Define {
+        id: String,
+        value: String,
+    },
+    Macro {
+        id: String,
+        operand_ount: i32,
+    },
+    EndMacro,
+}
+
 struct ParsedInstruction {
-    label: Option<String>,
+    mnemonic: String,
+    operands: Vec<String>,
 }
 
 fn main() {
