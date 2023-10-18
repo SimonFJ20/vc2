@@ -9,6 +9,12 @@ struct Pos {
     col: i32,
 }
 
+impl Pos {
+    pub fn value<'a>(&self, text: &'a str, length: usize) -> &'a str {
+        &text[self.index..self.index + length]
+    }
+}
+
 #[derive(Debug, Clone)]
 struct Error {
     message: String,
@@ -45,7 +51,6 @@ impl Error {
 
 #[derive(Debug, Clone, PartialEq)]
 enum TokenType {
-    Eof,
     Error,
     Newline,
     Id,
@@ -68,11 +73,10 @@ struct Token {
 
 impl Token {
     pub fn value<'a>(&self, text: &'a str) -> &'a str {
-        &text[self.pos.index..self.pos.index + self.length]
+        self.pos.value(text, self.length)
     }
 }
 
-#[derive(Debug, Clone)]
 struct Lexer<'a> {
     chars: Chars<'a>,
     index: usize,
@@ -95,7 +99,7 @@ impl<'a> Lexer<'a> {
             errors: Vec::new(),
         }
     }
-    pub fn next(&mut self) -> Token {
+    pub fn next_token(&mut self) -> Option<Token> {
         let pos = self.pos();
         match self.current {
             Some(' ' | '\t' | '\r') => {
@@ -103,7 +107,7 @@ impl<'a> Lexer<'a> {
                 loop {
                     match self.current {
                         Some(' ' | '\t' | '\r') => self.step(),
-                        _ => break self.next(),
+                        _ => break self.next_token(),
                     }
                 }
             }
@@ -111,7 +115,7 @@ impl<'a> Lexer<'a> {
                 self.step();
                 loop {
                     match self.current {
-                        Some('\n') | None => break self.next(),
+                        Some('\n') | None => break self.next_token(),
                         _ => {
                             self.step();
                         }
@@ -189,7 +193,7 @@ impl<'a> Lexer<'a> {
                 self.add_error("unexpected char", pos.clone());
                 self.token(TokenType::Error, pos)
             }
-            None => self.token(TokenType::Eof, pos),
+            None => None,
         }
     }
     pub fn errors(self) -> Vec<Error> {
@@ -217,12 +221,12 @@ impl<'a> Lexer<'a> {
         self.index += 1;
         self.current = self.chars.next();
     }
-    fn token(&self, token_type: TokenType, pos: Pos) -> Token {
-        Token {
+    fn token(&self, token_type: TokenType, pos: Pos) -> Option<Token> {
+        Some(Token {
             token_type,
             length: self.index - pos.index,
             pos,
-        }
+        })
     }
     fn pos(&self) -> Pos {
         Pos {
@@ -239,9 +243,181 @@ impl<'a> Lexer<'a> {
     }
 }
 
+impl<'a> Iterator for Lexer<'a> {
+    type Item = Token;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next_token()
+    }
+}
+
+#[derive(Debug, Clone)]
+enum Line {
+    Label(Label),
+    Instruction(Instruction),
+}
+
+#[derive(Debug, Clone)]
+struct Label {
+    value: String,
+    label_type: LabelType,
+}
+
+#[derive(Debug, Clone)]
+enum LabelType {
+    Global,
+    Local,
+}
+
+#[derive(Debug, Clone)]
+struct Instruction {
+    operator: String,
+    attribute: Option<String>,
+    operands: Vec<Operand>,
+}
+
+#[derive(Debug, Clone)]
+enum Operand {
+    Value(Value),
+    Address(Value),
+}
+
+#[derive(Debug, Clone)]
+enum Value {
+    Id(String),
+    Int(i32),
+}
+
 struct Parser<'a> {
     text: &'a str,
     lexer: Lexer<'a>,
+    current: Option<Token>,
+    last_pos: Pos,
+    errors: Vec<Error>,
+}
+
+impl<'a> Parser<'a> {
+    pub fn new(text: &'a str) -> Self {
+        let mut lexer = Lexer::new(text);
+        let first = lexer.next_token();
+        Self {
+            text,
+            lexer: Lexer::new(text),
+            current: first,
+            last_pos: Pos {
+                index: 0,
+                line: 1,
+                col: 1,
+            },
+            errors: Vec::new(),
+        }
+    }
+
+    pub fn parse(&mut self) -> Vec<Line> {
+        let mut lines = Vec::<Line>::new();
+        while self.current.is_some() {
+            match self.parse_line() {
+                Ok(line) => {
+                    lines.push(line);
+                }
+                Err(_) => loop {
+                    match self.current() {
+                        Some(TokenType::Newline) | None => break,
+                        _ => self.step(),
+                    }
+                },
+            }
+        }
+        lines
+    }
+
+    pub fn errors(self) -> Vec<Error> {
+        [self.lexer.errors(), self.errors].concat()
+    }
+
+    fn parse_line(&mut self) -> Result<Line, ()> {
+        let line = match self.current() {
+            Some(TokenType::Dot) => self.parse_local_label(),
+            Some(TokenType::Id) => self.parse_global_label_or_instruction(),
+            _ => {
+                self.add_error("expected label, instruction or directive", self.pos());
+                return Err(());
+            }
+        };
+        match self.current() {
+            Some(TokenType::Newline) | None => {
+                while self.current_is(TokenType::Newline) {
+                    self.step()
+                }
+            }
+            _ => {
+                self.add_error("expected newline", self.pos());
+                return Err(());
+            }
+        }
+        line
+    }
+
+    fn parse_local_label(&mut self) -> Result<Line, ()> {
+        self.step();
+        if !self.current_is(TokenType::Id) {
+            self.add_error("expected id", self.pos());
+            return Err(());
+        }
+        let value = self.current.unwrap().value(self.text).to_string();
+        self.step();
+        if !self.current_is(TokenType::Colon) {
+            self.add_error("expected ':'", self.pos());
+            return Err(());
+        }
+        self.step();
+        Ok(Line::Label(Label {
+            value,
+            label_type: LabelType::Local,
+        }))
+    }
+
+    fn parse_global_label_or_instruction(&mut self) -> Result<Line, ()> {
+        let value = self.current.unwrap().value(self.text).to_string();
+        self.step();
+        match self.current() {
+            Some(TokenType::Colon) => {
+                self.step();
+                Ok(Line::Label(Label {
+                    value,
+                    label_type: LabelType::Global,
+                }))
+            }
+            _ => self.parse_instruction(value),
+        }
+    }
+
+    fn parse_instruction(&mut self, operator: String) -> Result<Line, ()> {}
+
+    fn add_error<S: Into<String>>(&mut self, message: S, pos: Pos) {
+        self.errors.push(Error {
+            message: message.into(),
+            pos,
+        })
+    }
+    fn step(&mut self) {
+        if let Some(token) = self.current {
+            self.last_pos = token.pos;
+        }
+        self.current = self.lexer.next();
+    }
+    fn pos(&mut self) -> Pos {
+        self.current
+            .map_or_else(|| self.last_pos, |token| token.pos)
+    }
+    fn done(&self) -> bool {
+        self.current.is_none()
+    }
+    fn current(&self) -> Option<TokenType> {
+        self.current.map(|t| t.token_type)
+    }
+    fn current_is(&self, token_type: TokenType) -> bool {
+        self.current() == Some(token_type)
+    }
 }
 
 fn main() {
@@ -257,8 +433,8 @@ fn main() {
 
     let mut lexer = Lexer::new(text);
     loop {
-        let token = lexer.next();
-        if token.token_type == TokenType::Eof {
+        let token = lexer.next_token();
+        if token.is_some() {
             break;
         }
     }
