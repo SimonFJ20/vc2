@@ -339,7 +339,8 @@ impl<'a> Parser<'a> {
             Some(TokenType::Dot) => self.parse_local_label(),
             Some(TokenType::Id) => self.parse_global_label_or_instruction(),
             _ => {
-                self.add_error("expected label, instruction or directive", self.pos());
+                let pos = self.pos();
+                self.add_error("expected label, instruction or directive", pos);
                 return Err(());
             }
         };
@@ -350,7 +351,8 @@ impl<'a> Parser<'a> {
                 }
             }
             _ => {
-                self.add_error("expected newline", self.pos());
+                let pos = self.pos();
+                self.add_error("expected newline", pos);
                 return Err(());
             }
         }
@@ -360,13 +362,15 @@ impl<'a> Parser<'a> {
     fn parse_local_label(&mut self) -> Result<Line, ()> {
         self.step();
         if !self.current_is(TokenType::Id) {
-            self.add_error("expected id", self.pos());
+            let pos = self.pos();
+            self.add_error("expected id", pos);
             return Err(());
         }
-        let value = self.current.unwrap().value(self.text).to_string();
+        let value = self.current.as_ref().unwrap().value(self.text).to_string();
         self.step();
         if !self.current_is(TokenType::Colon) {
-            self.add_error("expected ':'", self.pos());
+            let pos = self.pos();
+            self.add_error("expected ':'", pos);
             return Err(());
         }
         self.step();
@@ -377,7 +381,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_global_label_or_instruction(&mut self) -> Result<Line, ()> {
-        let value = self.current.unwrap().value(self.text).to_string();
+        let value = self.current.as_ref().unwrap().value(self.text).to_string();
         self.step();
         match self.current() {
             Some(TokenType::Colon) => {
@@ -391,7 +395,42 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_instruction(&mut self, operator: String) -> Result<Line, ()> {}
+    fn parse_instruction(&mut self, operator: String) -> Result<Line, ()> {
+        let attribute = if self.current_is(TokenType::Id) {
+            let value = self.current.as_ref().unwrap().value(self.text).to_string();
+            self.step();
+            Some(value)
+        } else {
+            None
+        };
+        let mut operands = Vec::<Operand>::new();
+        match self.current() {
+            Some(TokenType::Newline) | None => {}
+            _ => {
+                operands.push(self.parse_operand()?);
+                match self.current() {
+                    Some(TokenType::Comma) => {
+                        self.step();
+                    }
+                    Some(TokenType::Newline) | None => {}
+                    _ => {
+                        let pos = self.pos();
+                        self.add_error("expected operand", pos);
+                        return Err(());
+                    }
+                }
+            }
+        }
+        Ok(Line::Instruction(Instruction {
+            operator,
+            attribute,
+            operands,
+        }))
+    }
+
+    fn parse_operand(&mut self) -> Result<Operand, ()> {
+        Err(())
+    }
 
     fn add_error<S: Into<String>>(&mut self, message: S, pos: Pos) {
         self.errors.push(Error {
@@ -400,20 +439,21 @@ impl<'a> Parser<'a> {
         })
     }
     fn step(&mut self) {
-        if let Some(token) = self.current {
-            self.last_pos = token.pos;
+        if let Some(token) = &self.current {
+            self.last_pos = token.pos.clone();
         }
         self.current = self.lexer.next();
     }
     fn pos(&mut self) -> Pos {
         self.current
-            .map_or_else(|| self.last_pos, |token| token.pos)
+            .clone()
+            .map_or_else(|| self.last_pos.clone(), |token| token.pos)
     }
     fn done(&self) -> bool {
         self.current.is_none()
     }
     fn current(&self) -> Option<TokenType> {
-        self.current.map(|t| t.token_type)
+        self.current.clone().map(|t| t.token_type)
     }
     fn current_is(&self, token_type: TokenType) -> bool {
         self.current() == Some(token_type)
