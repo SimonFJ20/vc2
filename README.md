@@ -102,11 +102,14 @@ The `add` and `sub` instructions, use the flags in the `fl` register as input.
 Opcode | Instruction | Description
 ---|---|---
 `0x06 0b0000 reg 0b00` | NOT reg | reg = not reg
+`0x06 0b1000 reg 0b00` | NOT [reg] | [reg] = not [reg]
+`0x06 0b11000000 imm` | NOT [imm] | [imm] = not [imm]
 
 ```
-0x06 0b0000dd00
+0x06 0bxx00dd00
 ```
 
+`xx` is destination select.
 `dd` is destination register.
 
 #### JMP
@@ -114,13 +117,13 @@ Opcode | Instruction | Description
 Opcode | Instruction | Description
 ---|---|---
 `0x11 0b0000 reg 0b00` | JMP reg | pc += reg
-`0x11 0b0100 reg 0b00 imm` | JMP imm | pc += imm
+`0x11 0b01000000 imm` | JMP imm | pc += imm
 `0x11 0b1000 reg 0b00` | JMP [reg] | pc += [reg]
-`0x11 0b1100 reg 0b00 imm` | JMP [imm] | pc += [imm]
+`0x11 0b11000000 imm` | JMP [imm] | pc += [imm]
 `0x11 0b0000 reg 0b01` | JMP reg | pc = reg
-`0x11 0b0100 reg 0b01 imm` | JMP imm | pc = imm
+`0x11 0b01000001 imm` | JMP imm | pc = imm
 `0x11 0b1000 reg 0b01` | JMP [reg] | pc = [reg]
-`0x11 0b1100 reg 0b01 imm` | JMP [imm] | pc = [imm]
+`0x11 0b11000001 imm` | JMP [imm] | pc = [imm]
 
 Relative jumps are relative to the jump instruction's address.
 
@@ -153,6 +156,7 @@ Conditional jumps are relative to the jump instruction's address.
 ```
 
 `kk` is instruction selector.
+`zz` is target select.
 `yy` is source select.
 `aa` is target register, if applicable.
 `ss` is source register, if applicable.
