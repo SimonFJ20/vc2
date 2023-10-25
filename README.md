@@ -51,14 +51,14 @@ Move values to registers, values to memory, registers to registers, registers to
 Cannot move from directly from memory to memory.
 Opcode | Instruction | Description
 ---|---|---
-`0x02 0b0000 reg1 reg2` | MOV reg1 reg2 | reg1 = reg2
-`0x02 0b0001 reg 0b00 imm` | MOV reg imm | reg = imm
-`0x02 0b0010 reg1 reg2` | MOV reg1 [reg2] | reg1 = memory[reg2]
-`0x02 0b0011 reg 0b00 imm` | MOV reg [imm] | reg = memory[imm]
-`0x02 0b1000 reg1 reg2` | MOV [reg1] reg2 | memory[reg1] = reg2
-`0x02 0b1001 reg 0b00 imm` | MOV [reg] imm | memory[reg1] = imm
-`0x02 0b110000 reg2 imm` | MOV [imm] reg2 | memory[imm] = reg2
-`0x02 0b110100000 imm1 imm2` | MOV [imm1] imm2 | memory[imm1] = imm2
+`0x02 0b0000aabb` | MOV a b | a = b
+`0x02 0b0001aa00 imm` | MOV a imm | a = imm
+`0x02 0b0010aabb` | MOV a [b] | a = memory[b]
+`0x02 0b0011aa00 imm` | MOV a [imm] | a = memory[imm]
+`0x02 0b1000aabb` | MOV [a] b | memory[a] = b
+`0x02 0b1001aa00 imm` | MOV [a] imm | memory[a] = imm
+`0x02 0b110000bb imm` | MOV [imm] b | memory[imm] = b
+`0x02 0b11010000 imm1 imm2` | MOV [imm1] imm2 | memory[imm1] = imm2
 
 ```
 0x02 0bxxyyddss
