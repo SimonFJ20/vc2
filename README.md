@@ -143,10 +143,12 @@ Opcode | Instruction | Description
 `0xkk 0b0000 reg1 reg2` | JCC reg1 reg2 | pc = reg1 if CC(reg2)
 `0xkk 0b0001 reg1 0b00 imm` | JCC reg1 imm | pc = reg1 if CC(imm)
 `0xkk 0b0010 reg1 reg2` | JCC reg1 [reg2] | pc = reg1 if CC([reg2])
-`0xkk 0b0011 reg1 0b00` | JCC reg1 [imm] | pc = reg1 if CC([imm])
+`0xkk 0b0011 reg1 0b00 imm` | JCC reg1 [imm] | pc = reg1 if CC([imm])
+`0xkk 0b010000 reg2 imm` | JCC imm reg2 | pc = imm if CC(reg2)
+`0xkk 0b010100 0b00 imm1 imm2` | JCC imm1 imm2 | pc = imm1 if CC(imm2)
 `0xkk 0b1000 reg1 reg2` | JCC [reg1] reg2 | pc = [reg1] if CC(reg2)
 `0xkk 0b1001 reg1 0b00 imm` | JCC [reg1] imm | pc = [reg1] if CC(imm)
-`0xkk 0b110000 reg2 imm` | JCC [imm] reg2 | pc = [imm] if CC(reg2)
+`0xkk 0b110000 reg imm` | JCC [imm] reg | pc = [imm] if CC(reg)
 `0xkk 0b110100 0b00 imm1 imm2` | JCC [imm1] imm2 | pc = [imm1] if CC(imm2)
 
 Conditional jumps are relative to the jump instruction's address.
