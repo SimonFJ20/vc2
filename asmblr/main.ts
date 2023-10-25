@@ -7,6 +7,22 @@ async function main() {
     assembler.assemble(lines);
     const result = assembler.finish();
     console.log(result);
+    for (let i = 0; i < result.length; ++i) {
+        console.log(
+            `${leftPad(i.toString(16), 2, "0")} ${
+                leftPad(i.toString(10), 3, " ")
+            }      ${leftPad(result[i].toString(16), 2, "0")} ${
+                leftPad(result[i].toString(10), 3, " ")
+            } ${leftPad(result[i].toString(2), 8, "0")}`,
+        );
+    }
+}
+
+function leftPad(value: string, minLength: number, replacer = " "): string {
+    while (value.length < minLength) {
+        value = replacer + value;
+    }
+    return value;
 }
 
 type Operand = {
@@ -159,9 +175,9 @@ class Assembler {
                             sourceOperand.value,
                         );
                         this.emit8(
-                            destSelector.selector << 6 &
-                                sourceSelector.selector << 4 &
-                                destSelector.registerSelector << 2 &
+                            destSelector.selector << 6 |
+                                sourceSelector.selector << 4 |
+                                destSelector.registerSelector << 2 |
                                 sourceSelector.registerSelector,
                         );
                         this.emitSelector(
@@ -174,8 +190,8 @@ class Assembler {
                             instruction.operands[1],
                             instructionAddress,
                         );
+                        return Ok(undefined);
                     }
-                    return Ok(undefined);
                 }
             }
             if (instruction.operator === "not") {
@@ -189,7 +205,7 @@ class Assembler {
                     if (destOperand.value.type !== "imm") {
                         const selector = this.dataSelector(destOperand.value);
                         this.emit8(
-                            selector.selector << 6 &
+                            selector.selector << 6 |
                                 selector.registerSelector << 2,
                         );
                         this.emitSelector(
@@ -209,21 +225,20 @@ class Assembler {
                     if (!targetOperand.ok) {
                         return Err(targetOperand.error);
                     }
-                    if (targetOperand.value.type !== "imm") {
-                        const targetSelector = this.dataSelector(
-                            targetOperand.value,
-                        );
-                        this.emit8(
-                            targetSelector.selector << 6 &
-                                targetSelector.registerSelector << 2 &
-                                (instruction.operator === "jmp" ? 1 : 0),
-                        );
-                        this.emitSelector(
-                            targetSelector,
-                            instruction.operands[0],
-                            instructionAddress,
-                        );
-                    }
+                    const targetSelector = this.dataSelector(
+                        targetOperand.value,
+                    );
+                    this.emit8(
+                        targetSelector.selector << 6 |
+                            targetSelector.registerSelector << 2 |
+                            (instruction.operator === "jmpaps" ? 1 : 0),
+                    );
+                    this.emitSelector(
+                        targetSelector,
+                        instruction.operands[0],
+                        instructionAddress,
+                        instruction.operator === "jmp",
+                    );
                     return Ok(undefined);
                 }
             }
@@ -242,7 +257,6 @@ class Assembler {
                         return Err(sourceOperand.error);
                     }
                     if (
-                        targetOperand.value.type !== "imm" &&
                         (targetOperand.value.type !== "address" ||
                             sourceOperand.value.type !== "address")
                     ) {
@@ -253,9 +267,9 @@ class Assembler {
                             sourceOperand.value,
                         );
                         this.emit8(
-                            targetSelector.selector << 6 &
-                                sourceSelector.selector << 4 &
-                                targetSelector.registerSelector << 2 &
+                            targetSelector.selector << 6 |
+                                sourceSelector.selector << 4 |
+                                targetSelector.registerSelector << 2 |
                                 sourceSelector.registerSelector,
                         );
                         this.emitSelector(
@@ -269,8 +283,8 @@ class Assembler {
                             instruction.operands[1],
                             instructionAddress,
                         );
+                        return Ok(undefined);
                     }
-                    return Ok(undefined);
                 }
             }
             return Err(`malformed '${instruction.operator}' instruction`);
@@ -344,7 +358,7 @@ class Assembler {
         ) {
         if (operand.type === "address") {
             const inner = this.dataSelector(operand.value);
-            return { ...inner, selector: inner.selector & 0b10 };
+            return { ...inner, selector: inner.selector | 0b10 };
         }
         if (operand.type === "reg") {
             return {
