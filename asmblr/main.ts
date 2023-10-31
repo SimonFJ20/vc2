@@ -1,21 +1,113 @@
 async function main() {
-    const text = await Deno.readTextFile(Deno.args[0]);
+    const options = parseArgOptions(Deno.args);
+    if (options.printHelp) {
+        console.log(helpMessage);
+        return;
+    }
+    if (options.printVersion) {
+        console.log(versionMessage);
+        return;
+    }
+    const text = await Deno.readTextFile(options.inputFile);
     const parser = new Parser(text);
     const lines = [...iterate(parser)];
-    console.log(lines);
+    if (options.printAst) {
+        console.log(lines);
+    }
     const assembler = new Assembler();
     assembler.assemble(lines);
     const result = assembler.finish();
-    console.log(result);
-    for (let i = 0; i < result.length; ++i) {
-        console.log(
-            `${leftPad(i.toString(16), 2, "0")} ${
-                leftPad(i.toString(10), 3, " ")
-            }      ${leftPad(result[i].toString(16), 2, "0")} ${
-                leftPad(result[i].toString(10), 3, " ")
-            } ${leftPad(result[i].toString(2), 8, "0")}`,
-        );
+    if (options.printResult) {
+        for (let i = 0; i < result.length; ++i) {
+            console.log(
+                `${leftPad(i.toString(16), 2, "0")} ${
+                    leftPad(i.toString(10), 3, " ")
+                }      ${leftPad(result[i].toString(16), 2, "0")} ${
+                    leftPad(result[i].toString(10), 3, " ")
+                } ${leftPad(result[i].toString(2), 8, "0")}`,
+            );
+        }
     }
+    if (options.outputFile.ok) {
+        await Deno.writeFile(options.outputFile.value, result);
+    }
+}
+
+type ArgOptions = {
+    printHelp: boolean;
+    printVersion: boolean;
+    inputFile: string;
+    outputFile: Option<string>;
+    printAst: boolean;
+    printResult: boolean;
+};
+
+const helpMessage = `
+asmblr [options] <filename>
+options:
+    -h,--help       print help
+    -v,--version    print version
+    -o <filename>   specify output file
+    --print-ast     print result of parsing
+    --print-result  print result of assembling
+`.trim();
+
+const versionMessage = `
+asmbler WIP
+assembler for vc2
+`.trim();
+
+function parseArgOptions(args: string[]): ArgOptions {
+    let printHelp = false;
+    let printVersion = false;
+    let inputFile = None<string>();
+    let outputFile = None<string>();
+    let printAst = false;
+    let printResult = false;
+
+    let i = 0;
+    while (i < args.length) {
+        if (!args[i].startsWith("-")) {
+            if (inputFile.ok) {
+                console.error("error: multiple input files");
+                Deno.exit(1);
+            }
+            inputFile = Some(args[i]);
+        } else if (args[i] == "-o") {
+            i += 1;
+            if (i >= args.length || args[i].startsWith("-")) {
+                console.error(`error: expected output file after "-o"`);
+                Deno.exit(1);
+            }
+            outputFile = Some(args[i]);
+        } else if (contains(args[i], ["-h", "--help"])) {
+            printHelp = true;
+        } else if (contains(args[i], ["-v", "--version"])) {
+            printVersion = true;
+        } else if (args[i] == "--print-ast") {
+            printAst = true;
+        } else if (args[i] == "--print-result") {
+            printResult = true;
+        } else {
+            console.error(`error: unrecognized argument "${args[i]}"`);
+            Deno.exit(1);
+        }
+        i += 1;
+    }
+
+    if (!inputFile.ok) {
+        console.error("error: no input file");
+        Deno.exit(1);
+    }
+
+    return {
+        printHelp,
+        printVersion,
+        inputFile: inputFile.value,
+        outputFile,
+        printAst,
+        printResult,
+    };
 }
 
 function leftPad(value: string, minLength: number, replacer = " "): string {
@@ -41,12 +133,26 @@ type Operand = {
 
 type UnresolvedSymbol = {
     symbol: string;
+    superLabel: Option<string>;
     expr: ParsedExpr;
     instructionAddress: number;
     operandAddress: number;
     relative: boolean;
     lineNumber: number;
 };
+
+type DataSelector =
+    & {
+        selector: number;
+        registerSelector: number;
+    }
+    & (
+        | { type: "reg" }
+        | (
+            & { type: "imm"; value: number }
+            & ({ unresolved: false } | { unresolved: true; symbol: string })
+        )
+    );
 
 class Assembler {
     private result: number[] = [];
@@ -87,6 +193,7 @@ class Assembler {
 
     private resolveUnresolved() {
         for (const symbol of this.unresolvedSymbols) {
+            this.superLabel = symbol.superLabel;
             const result = this.evaluateOperand(symbol.expr);
             if (!result.ok) {
                 throw new Error(
@@ -148,189 +255,210 @@ class Assembler {
             }
             if (
                 instruction.operator === "mov" ||
-                instruction.operator in Assembler.arithmeticOperators
+                contains(instruction.operator, Assembler.arithmeticOperators)
             ) {
-                if (instruction.operands.length === 2) {
-                    const destOperand = this.evaluateOperand(
-                        instruction.operands[0],
+                if (instruction.operands.length !== 2) {
+                    return Err(
+                        `malformed '${instruction.operator}' instruction`,
                     );
-                    if (!destOperand.ok) {
-                        return Err(destOperand.error);
-                    }
-                    const sourceOperand = this.evaluateOperand(
-                        instruction.operands[1],
-                    );
-                    if (!sourceOperand.ok) {
-                        return Err(sourceOperand.error);
-                    }
-                    if (
-                        destOperand.value.type !== "imm" &&
-                        (destOperand.value.type !== "address" ||
-                            sourceOperand.value.type !== "address")
-                    ) {
-                        const destSelector = this.dataSelector(
-                            destOperand.value,
-                        );
-                        const sourceSelector = this.dataSelector(
-                            sourceOperand.value,
-                        );
-                        this.emit8(
-                            destSelector.selector << 6 |
-                                sourceSelector.selector << 4 |
-                                destSelector.registerSelector << 2 |
-                                sourceSelector.registerSelector,
-                        );
-                        this.emitSelector(
-                            destSelector,
-                            instruction.operands[0],
-                            instructionAddress,
-                        );
-                        this.emitSelector(
-                            sourceSelector,
-                            instruction.operands[1],
-                            instructionAddress,
-                        );
-                        return Ok(undefined);
-                    }
                 }
+                const destOperand = this.evaluateOperand(
+                    instruction.operands[0],
+                );
+                if (!destOperand.ok) {
+                    return Err(destOperand.error);
+                }
+                const sourceOperand = this.evaluateOperand(
+                    instruction.operands[1],
+                );
+                if (!sourceOperand.ok) {
+                    return Err(sourceOperand.error);
+                }
+                if (
+                    destOperand.value.type === "imm" ||
+                    (destOperand.value.type === "address" &&
+                        sourceOperand.value.type === "address")
+                ) {
+                    return Err(
+                        `malformed '${instruction.operator}' instruction`,
+                    );
+                }
+                const destSelector = this.dataSelector(
+                    destOperand.value,
+                );
+                const sourceSelector = this.dataSelector(
+                    sourceOperand.value,
+                );
+                this.emit8(
+                    destSelector.selector << 6 |
+                        sourceSelector.selector << 4 |
+                        destSelector.registerSelector << 2 |
+                        sourceSelector.registerSelector,
+                );
+                this.emitSelector(
+                    destSelector,
+                    instruction.operands[0],
+                    instructionAddress,
+                );
+                this.emitSelector(
+                    sourceSelector,
+                    instruction.operands[1],
+                    instructionAddress,
+                );
+                return Ok(undefined);
             }
             if (instruction.operator === "not") {
-                if (instruction.operands.length === 1) {
-                    const destOperand = this.evaluateOperand(
-                        instruction.operands[0],
+                if (instruction.operands.length !== 1) {
+                    return Err(
+                        `malformed '${instruction.operator}' instruction`,
                     );
-                    if (!destOperand.ok) {
-                        return Err(destOperand.error);
-                    }
-                    if (destOperand.value.type !== "imm") {
-                        const selector = this.dataSelector(destOperand.value);
-                        this.emit8(
-                            selector.selector << 6 |
-                                selector.registerSelector << 2,
-                        );
-                        this.emitSelector(
-                            selector,
-                            instruction.operands[0],
-                            instructionAddress,
-                        );
-                    }
-                    return Ok(undefined);
                 }
+                const destOperand = this.evaluateOperand(
+                    instruction.operands[0],
+                );
+                if (!destOperand.ok) {
+                    return Err(destOperand.error);
+                }
+                if (destOperand.value.type === "imm") {
+                    return Err(
+                        `malformed '${instruction.operator}' instruction`,
+                    );
+                }
+                const selector = this.dataSelector(destOperand.value);
+                this.emit8(
+                    selector.selector << 6 |
+                        selector.registerSelector << 2,
+                );
+                this.emitSelector(
+                    selector,
+                    instruction.operands[0],
+                    instructionAddress,
+                );
+                return Ok(undefined);
             }
             if (contains(instruction.operator, ["jmp", "jmpabs"])) {
-                if (instruction.operands.length === 1) {
-                    const targetOperand = this.evaluateOperand(
-                        instruction.operands[0],
+                if (instruction.operands.length !== 1) {
+                    return Err(
+                        `malformed '${instruction.operator}' instruction`,
                     );
-                    if (!targetOperand.ok) {
-                        return Err(targetOperand.error);
-                    }
-                    const targetSelector = this.dataSelector(
-                        targetOperand.value,
-                    );
-                    this.emit8(
-                        targetSelector.selector << 6 |
-                            targetSelector.registerSelector << 2 |
-                            (instruction.operator === "jmpaps" ? 1 : 0),
-                    );
-                    this.emitSelector(
-                        targetSelector,
-                        instruction.operands[0],
-                        instructionAddress,
-                        instruction.operator === "jmp",
-                    );
-                    return Ok(undefined);
                 }
+                const targetOperand = this.evaluateOperand(
+                    instruction.operands[0],
+                );
+                if (!targetOperand.ok) {
+                    return Err(targetOperand.error);
+                }
+                const targetSelector = this.dataSelector(
+                    targetOperand.value,
+                );
+                this.emit8(
+                    targetSelector.selector << 6 |
+                        targetSelector.registerSelector << 2 |
+                        (instruction.operator === "jmpaps" ? 1 : 0),
+                );
+                this.emitSelector(
+                    targetSelector,
+                    instruction.operands[0],
+                    instructionAddress,
+                    instruction.operator === "jmp",
+                );
+                return Ok(undefined);
             }
             if (contains(instruction.operator, ["jz", "jnz"])) {
-                if (instruction.operands.length === 2) {
-                    const targetOperand = this.evaluateOperand(
-                        instruction.operands[0],
+                if (instruction.operands.length !== 2) {
+                    return Err(
+                        `malformed '${instruction.operator}' instruction`,
                     );
-                    if (!targetOperand.ok) {
-                        return Err(targetOperand.error);
-                    }
-                    const sourceOperand = this.evaluateOperand(
-                        instruction.operands[1],
-                    );
-                    if (!sourceOperand.ok) {
-                        return Err(sourceOperand.error);
-                    }
-                    if (
-                        (targetOperand.value.type !== "address" ||
-                            sourceOperand.value.type !== "address")
-                    ) {
-                        const targetSelector = this.dataSelector(
-                            targetOperand.value,
-                        );
-                        const sourceSelector = this.dataSelector(
-                            sourceOperand.value,
-                        );
-                        this.emit8(
-                            targetSelector.selector << 6 |
-                                sourceSelector.selector << 4 |
-                                targetSelector.registerSelector << 2 |
-                                sourceSelector.registerSelector,
-                        );
-                        this.emitSelector(
-                            targetSelector,
-                            instruction.operands[0],
-                            instructionAddress,
-                            true,
-                        );
-                        this.emitSelector(
-                            sourceSelector,
-                            instruction.operands[1],
-                            instructionAddress,
-                        );
-                        return Ok(undefined);
-                    }
                 }
+                const targetOperand = this.evaluateOperand(
+                    instruction.operands[0],
+                );
+                if (!targetOperand.ok) {
+                    return Err(targetOperand.error);
+                }
+                const sourceOperand = this.evaluateOperand(
+                    instruction.operands[1],
+                );
+                if (!sourceOperand.ok) {
+                    return Err(sourceOperand.error);
+                }
+                if (
+                    (targetOperand.value.type === "address" &&
+                        sourceOperand.value.type === "address")
+                ) {
+                    return Err(
+                        `malformed '${instruction.operator}' instruction`,
+                    );
+                }
+                const targetSelector = this.dataSelector(
+                    targetOperand.value,
+                );
+                const sourceSelector = this.dataSelector(
+                    sourceOperand.value,
+                );
+                this.emit8(
+                    targetSelector.selector << 6 |
+                        sourceSelector.selector << 4 |
+                        targetSelector.registerSelector << 2 |
+                        sourceSelector.registerSelector,
+                );
+                this.emitSelector(
+                    targetSelector,
+                    instruction.operands[0],
+                    instructionAddress,
+                    true,
+                );
+                this.emitSelector(
+                    sourceSelector,
+                    instruction.operands[1],
+                    instructionAddress,
+                );
+                return Ok(undefined);
             }
             return Err(`malformed '${instruction.operator}' instruction`);
         }
+        if (instruction.operator == "dw") {
+            for (const operandExpr of instruction.operands) {
+                const operand = this.evaluateOperand(operandExpr);
+                if (!operand.ok) {
+                    return Err(operand.error);
+                }
+                if (operand.value.type !== "imm") {
+                    return Err("malformed 'dw' instruction");
+                }
+                const selector = this.dataSelector(operand.value);
+                this.emitSelector(selector, operandExpr, instructionAddress);
+            }
+            return Ok(undefined);
+        }
         return Err(
-            `unsupported instruction for directive "${instruction.operator}"`,
+            `unsupported instructio/directive "${instruction.operator}"`,
         );
     }
 
     private emitSelector(
-        selector:
-            & {
-                selector: number;
-                registerSelector: number;
-            }
-            & (
-                | { type: "reg" }
-                | (
-                    & { type: "imm"; value: number }
-                    & ({ unresolved: false } | {
-                        unresolved: true;
-                        symbol: string;
-                    })
-                )
-            ),
+        selector: DataSelector,
         operandExpr: ParsedExpr,
         instructionAddress: number,
         relative = false,
     ) {
-        if (
-            selector.type === "imm"
-        ) {
-            if (selector.unresolved) {
-                this.unresolvedSymbols.push({
-                    symbol: selector.symbol,
-                    instructionAddress,
-                    operandAddress: this.address,
-                    expr: operandExpr,
-                    relative,
-                    lineNumber: this.currentLineNumber,
-                });
-            }
-            this.emit32(
-                relative ? selector.value - instructionAddress : selector.value,
-            );
+        if (selector.type !== "imm") {
+            return;
         }
+        if (selector.unresolved) {
+            this.unresolvedSymbols.push({
+                symbol: selector.symbol,
+                superLabel: this.superLabel,
+                instructionAddress,
+                operandAddress: this.address,
+                expr: operandExpr,
+                relative,
+                lineNumber: this.currentLineNumber,
+            });
+        }
+        this.emit32(
+            relative ? selector.value - instructionAddress : selector.value,
+        );
     }
 
     private operatorOpcode(operator: string): Option<number> {
@@ -342,20 +470,7 @@ class Assembler {
             : None();
     }
 
-    private dataSelector(
-        operand: Operand,
-    ):
-        & {
-            selector: number;
-            registerSelector: number;
-        }
-        & (
-            | { type: "reg" }
-            | (
-                & { type: "imm"; value: number }
-                & ({ unresolved: false } | { unresolved: true; symbol: string })
-            )
-        ) {
+    private dataSelector(operand: Operand): DataSelector {
         if (operand.type === "address") {
             const inner = this.dataSelector(operand.value);
             return { ...inner, selector: inner.selector | 0b10 };
@@ -651,7 +766,6 @@ class Parser implements Iter<ParsedLine> {
                 if (this.currentIn("\r\n")) {
                     return { label: value, lineNumber: this.line };
                 }
-                console.log(this.currentIs("\n"));
                 return {
                     label: value,
                     instruction: this.parseInstruction(),
@@ -674,6 +788,7 @@ class Parser implements Iter<ParsedLine> {
             }
             while (this.currentMatches(/[a-zA-Z_0-9]/)) {
                 operator += this.current();
+                this.step();
             }
         }
         const operands: ParsedExpr[] = [];
@@ -946,7 +1061,7 @@ function iterate<T>(iterator: Iter<T>) {
     };
 }
 
-function contains<T>(v: T, vs: T[]): boolean {
+function contains<T>(v: T, vs: readonly T[]): boolean {
     for (const c of vs) {
         if (c === v) {
             return true;
