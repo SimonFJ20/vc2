@@ -417,6 +417,20 @@ class Assembler {
             }
             return Err(`malformed '${instruction.operator}' instruction`);
         }
+        if (instruction.operator == "db") {
+            for (const operandExpr of instruction.operands) {
+                const operand = this.evaluateOperand(operandExpr);
+                if (!operand.ok) {
+                    return Err(operand.error);
+                }
+                if (operand.value.type !== "imm") {
+                    return Err("malformed 'dw' instruction");
+                }
+                const selector = this.dataSelector(operand.value);
+                this.emitSelector(selector, operandExpr, instructionAddress);
+            }
+            return Ok(undefined);
+        }
         if (instruction.operator == "dw") {
             for (const operandExpr of instruction.operands) {
                 const operand = this.evaluateOperand(operandExpr);
