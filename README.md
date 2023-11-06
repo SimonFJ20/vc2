@@ -197,6 +197,11 @@ Bit | Hex mask | Description | Value
 
 ### Memory layout and mappings
 
+Callbacks set `r1` to `pc`, and then set `pc` to the callback address.
+
+Video memory is encoded as `0xRRGGBB00`, where the `RR` byte is red, the `GG` byte is green, the `BB` byte is blue and the last `00` byte is unused.
+VRAM is laid out row by row, meaning `[y * width + x]` is the indexing form.
+
 Address | Description
 ---|---
 `0x0000..0x1000` | Program memory
