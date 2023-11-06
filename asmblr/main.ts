@@ -354,7 +354,7 @@ class Assembler {
                 this.emit8(
                     targetSelector.selector << 6 |
                         targetSelector.registerSelector << 2 |
-                        (instruction.operator === "jmpaps" ? 1 : 0),
+                        (instruction.operator === "jmpabs" ? 1 : 0),
                 );
                 this.emitSelector(
                     targetSelector,
