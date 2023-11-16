@@ -1,3 +1,3 @@
 [submodule "vc2-emulator"]
-	path = vc2-emulator
+	path = vc2-tools
 	url = git@github.com:camper0008/vc2-emulator.git
