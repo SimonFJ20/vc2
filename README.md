@@ -146,6 +146,8 @@ Opcode | Instruction | Description
 `0xkk 0b0011 reg1 0b00 imm` | JCC reg1 [imm] | pc = reg1 if CC([imm])
 `0xkk 0b010000 reg2 imm` | JCC imm reg2 | pc = imm if CC(reg2)
 `0xkk 0b010100 0b00 imm1 imm2` | JCC imm1 imm2 | pc = imm1 if CC(imm2)
+`0xkk 0b011000 reg2 imm` | JCC imm [reg2] | pc = imm if CC([reg2])
+`0xkk 0b011100 0b00 imm1 imm2` | JCC imm1 [imm2] | pc = imm1 if CC([imm2])
 `0xkk 0b1000 reg1 reg2` | JCC [reg1] reg2 | pc = [reg1] if CC(reg2)
 `0xkk 0b1001 reg1 0b00 imm` | JCC [reg1] imm | pc = [reg1] if CC(imm)
 `0xkk 0b110000 reg imm` | JCC [imm] reg | pc = [imm] if CC(reg)
@@ -193,7 +195,8 @@ Bit | Hex mask | Description | Value
 0 | `0x1` | Overflow | If result is too large to fit in the destination, unless Carry/borrow suffices
 1 | `0x2` | Carry/borrow | If op in [add, subtract], the result constitutes a carry or subtract.
 2 | `0x4` | Equal | if op == cmp, if destination == source
-3 | `0x8` | Less | if op == cmp, if destination < source
+3 | `0x8` | Less | if op == cmp, if destination < source (signed)
+3 | `0xF` | Below | if op == cmp, if destination < source (unsigned)
 
 ### Memory layout and mappings
 
