@@ -192,11 +192,11 @@ Selector | Mnemonic | Description
 
 Bit | Hex mask | Description | Value
 ---|---|---|---
-0 | `0x1` | Overflow | If result is too large to fit in the destination, unless Carry/borrow suffices
-1 | `0x2` | Carry/borrow | If op in [add, subtract], the result constitutes a carry or subtract.
-2 | `0x4` | Equal | if op == cmp, if destination == source
-3 | `0x8` | Less | if op == cmp, if destination < source (signed)
-3 | `0xF` | Below | if op == cmp, if destination < source (unsigned)
+0 | `0x01` | Overflow | If result is too large to fit in the destination, unless Carry/borrow suffices
+1 | `0x02` | Carry/borrow | If op in [add, subtract], the result constitutes a carry or subtract.
+2 | `0x04` | Equal | if op == cmp, if destination == source
+3 | `0x08` | Less | if op == cmp, if destination < source (signed)
+3 | `0x10` | Below | if op == cmp, if destination < source (unsigned)
 
 ### Memory layout and mappings
 
