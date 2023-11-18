@@ -196,7 +196,7 @@ Bit | Hex mask | Description | Value
 1 | `0x02` | Carry/borrow | If op in [add, subtract], the result constitutes a carry or subtract.
 2 | `0x04` | Equal | if op == cmp, if destination == source
 3 | `0x08` | Less | if op == cmp, if destination < source (signed)
-3 | `0x10` | Below | if op == cmp, if destination < source (unsigned)
+4 | `0x10` | Below | if op == cmp, if destination < source (unsigned)
 
 ### Memory layout and mappings
 
