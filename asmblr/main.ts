@@ -137,7 +137,6 @@ type UnresolvedSymbol = {
     expr: ParsedExpr;
     instructionAddress: number;
     operandAddress: number;
-    relative: boolean;
     lineNumber: number;
 };
 
@@ -208,12 +207,7 @@ class Assembler {
             if (result.value.type !== "imm") {
                 throw new Error("unreachable " + result.value.type);
             }
-            this.insert32(
-                symbol.operandAddress,
-                symbol.relative
-                    ? result.value.value - symbol.instructionAddress
-                    : result.value.value,
-            );
+            this.insert32(symbol.operandAddress);
         }
     }
 
@@ -336,7 +330,7 @@ class Assembler {
                 );
                 return Ok(undefined);
             }
-            if (contains(instruction.operator, ["jmp", "jmpabs"])) {
+            if (contains(instruction.operator, ["jmp"])) {
                 if (instruction.operands.length !== 1) {
                     return Err(
                         `malformed '${instruction.operator}' instruction`,
@@ -353,14 +347,12 @@ class Assembler {
                 );
                 this.emit8(
                     targetSelector.selector << 6 |
-                        targetSelector.registerSelector << 2 |
-                        (instruction.operator === "jmpabs" ? 1 : 0),
+                        targetSelector.registerSelector << 2 |,
                 );
                 this.emitSelector(
                     targetSelector,
                     instruction.operands[0],
                     instructionAddress,
-                    instruction.operator === "jmp",
                 );
                 return Ok(undefined);
             }
@@ -406,7 +398,6 @@ class Assembler {
                     targetSelector,
                     instruction.operands[0],
                     instructionAddress,
-                    true,
                 );
                 this.emitSelector(
                     sourceSelector,
@@ -446,7 +437,7 @@ class Assembler {
             return Ok(undefined);
         }
         return Err(
-            `unsupported instructio/directive "${instruction.operator}"`,
+            `unsupported instruction/directive "${instruction.operator}"`,
         );
     }
 
@@ -454,7 +445,6 @@ class Assembler {
         selector: DataSelector,
         operandExpr: ParsedExpr,
         instructionAddress: number,
-        relative = false,
     ) {
         if (selector.type !== "imm") {
             return;
@@ -466,13 +456,10 @@ class Assembler {
                 instructionAddress,
                 operandAddress: this.address,
                 expr: operandExpr,
-                relative,
                 lineNumber: this.currentLineNumber,
             });
         }
-        this.emit32(
-            relative ? selector.value - instructionAddress : selector.value,
-        );
+        this.emit32(selector.value);
     }
 
     private operatorOpcode(operator: string): Option<number> {
@@ -691,7 +678,6 @@ class Assembler {
         "rem": 0x0f,
         "cmp": 0x10,
         "jmp": 0x11,
-        "jmpabs": 0x11,
         "jz": 0x12,
         "jnz": 0x13,
     } as const;
