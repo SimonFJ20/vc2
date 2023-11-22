@@ -207,7 +207,7 @@ class Assembler {
             if (result.value.type !== "imm") {
                 throw new Error("unreachable " + result.value.type);
             }
-            this.insert32(symbol.operandAddress);
+            this.insert32(result.value.valu);
         }
     }
 
