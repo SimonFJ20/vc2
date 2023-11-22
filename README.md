@@ -30,7 +30,7 @@ Opcode | Mnemonic | Description
 `0x0e` | `idiv` | Signed integer division, `a / b`
 `0x0f` | `rem` | Calculator remainder (modulo), `a % b`
 `0x10` | `cmp` | Compare values, `a == b`, `a < b`
-`0x11` | `jmp` | Jump relative or absolute
+`0x11` | `jmp` | Jump
 `0x12` | `jz` | Jump if zero
 `0x13` | `jnz` | Jump if not zero
 
@@ -116,24 +116,19 @@ Opcode | Instruction | Description
 
 Opcode | Instruction | Description
 ---|---|---
-`0x11 0b0000 reg 0b00` | JMP reg | pc += reg
-`0x11 0b01000000 imm` | JMP imm | pc += imm
-`0x11 0b1000 reg 0b00` | JMP [reg] | pc += [reg]
-`0x11 0b11000000 imm` | JMP [imm] | pc += [imm]
-`0x11 0b0000 reg 0b01` | JMP reg | pc = reg
-`0x11 0b01000001 imm` | JMP imm | pc = imm
-`0x11 0b1000 reg 0b01` | JMP [reg] | pc = [reg]
-`0x11 0b11000001 imm` | JMP [imm] | pc = [imm]
+`0x11 0b0000 reg 0b00` | JMP reg | pc = reg
+`0x11 0b01000000 imm` | JMP imm | pc = imm
+`0x11 0b1000 reg 0b00` | JMP [reg] | pc = [reg]
+`0x11 0b11000000 imm` | JMP [imm] | pc = [imm]
 
-Relative jumps are relative to the jump instruction's address.
+Jumps are absolute.
 
 ```
-0x11 0bzz00aa0r
+0x11 0bzz00aa00
 ```
 
 `zz` is target select.
 `aa` is target register, if applicable.
-`r` is relative/absolute switch, `1` if absolute, else `0`.
 Immediates are appended if applicable, destination first.
 
 #### JZ, JNZ
@@ -153,7 +148,7 @@ Opcode | Instruction | Description
 `0xkk 0b110000 reg imm` | JCC [imm] reg | pc = [imm] if CC(reg)
 `0xkk 0b110100 0b00 imm1 imm2` | JCC [imm1] imm2 | pc = [imm1] if CC(imm2)
 
-Conditional jumps are relative to the jump instruction's address.
+Conditional jumps are absolute.
 
 ```
 0xkk 0bzzyyaass
