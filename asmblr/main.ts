@@ -347,7 +347,7 @@ class Assembler {
                 );
                 this.emit8(
                     targetSelector.selector << 6 |
-                        targetSelector.registerSelector << 2 |,
+                        targetSelector.registerSelector << 2,
                 );
                 this.emitSelector(
                     targetSelector,
