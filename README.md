@@ -204,7 +204,7 @@ Address | Description
 ---|---
 `0x0000..0x1000` | Program memory
 `0x1000..0x2000` | General purpose
-`0x2010` | Current time [µs] (Read)
+`0x2010` | Time since startup [ms] (Read)
 `0x2014` | Enable timer (Write)
 `0x2018` | Timer countdown time [µs] (Write)
 `0x201c` | Timer callback address (Write)
