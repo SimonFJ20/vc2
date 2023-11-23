@@ -33,6 +33,7 @@ export type TokenType =
     | "or"
     | "false"
     | "true"
+    | "_"
     | "."
     | ","
     | ":"
@@ -106,6 +107,10 @@ export class Lexer {
             return this.skipMultilineComment();
         }
         if (this.currentMatches(/^[a-zA-Z_]/)) {
+            this.step();
+            if (!this.currentMatches(/^[a-zA-Z0-9_]/)) {
+                return this.token("_", pos);
+            }
             while (this.currentMatches(/^[a-zA-Z0-9_]/)) {
                 this.step();
             }
@@ -118,7 +123,7 @@ export class Lexer {
             return this.token("id", pos);
         }
         if (this.currentIn("123456789")) {
-            while (this.currentIn("1234567890")) {
+            while (this.currentIn("1234567_890")) {
                 this.step();
             }
             return this.token("int", pos);
@@ -224,7 +229,7 @@ export class Lexer {
                 this.error("expected hex digit", pos);
                 return this.token("error", pos);
             }
-            while (this.currentIn("1234567890abcdef")) {
+            while (this.currentIn("1234567890abcdef_")) {
                 this.step();
             }
             return this.token("hex", pos);
@@ -234,7 +239,7 @@ export class Lexer {
                 this.error("expected binary digit", pos);
                 return this.token("error", pos);
             }
-            while (this.currentIn("01")) {
+            while (this.currentIn("01_")) {
                 this.step();
             }
             return this.token("binary", pos);
@@ -303,6 +308,7 @@ export class Lexer {
         "^=",
         "|=",
         "->",
+        "_",
         ".",
         ",",
         ":",
@@ -342,50 +348,6 @@ export class Lexer {
     ] as const;
 }
 
-export type ParsedExpr =
-    & (
-        | { type: "error" }
-        | { type: "id"; value: string }
-        | { type: "int"; value: number }
-        | { type: "char"; value: string }
-        | { type: "string"; value: string }
-        | {
-            type: "block";
-            statements: ParsedExpr[];
-        }
-        | {
-            type: "if";
-            condition: ParsedExpr;
-            truthy: ParsedExpr;
-            falsy: Option<ParsedExpr>;
-        }
-        | { type: "call"; subject: ParsedExpr; args: ParsedExpr[] }
-        | { type: "index"; subject: ParsedExpr; value: ParsedExpr }
-        | {
-            type: "unary";
-            unaryType: UnaryType;
-            subject: ParsedExpr;
-        }
-        | {
-            type: "binary";
-            binaryType: BinaryType;
-            left: ParsedExpr;
-            right: ParsedExpr;
-        }
-        | {
-            type: "assign";
-            assignType: AssignType;
-            subject: ParsedExpr;
-            value: ParsedExpr;
-        }
-        | {
-            type: "let";
-            id: string;
-            value: ParsedExpr;
-        }
-    )
-    & { pos: Pos };
-
 export type UnaryType = "-" | "*" | "!" | "&";
 
 export type BinaryType =
@@ -422,10 +384,65 @@ export type AssignType =
     | "^="
     | "|=";
 
+export type ParsedExpr =
+    & (
+        | { type: "error" }
+        | { type: "blank" }
+        | { type: "id"; value: string }
+        | { type: "int"; value: number }
+        | { type: "char"; value: string }
+        | { type: "string"; value: string }
+        | { type: "arrayInitializer"; value: ParsedExpr; repeats: ParsedExpr }
+        | {
+            type: "block";
+            statements: ParsedExpr[];
+        }
+        | {
+            type: "if";
+            condition: ParsedExpr;
+            truthy: ParsedExpr;
+            falsy: Option<ParsedExpr>;
+        }
+        | { type: "call"; subject: ParsedExpr; args: ParsedExpr[] }
+        | { type: "index"; subject: ParsedExpr; value: ParsedExpr }
+        | {
+            type: "unary";
+            unaryType: UnaryType;
+            subject: ParsedExpr;
+        }
+        | {
+            type: "binary";
+            binaryType: BinaryType;
+            left: ParsedExpr;
+            right: ParsedExpr;
+        }
+        | {
+            type: "assign";
+            assignType: AssignType;
+            subject: ParsedExpr;
+            value: ParsedExpr;
+        }
+        | {
+            type: "let";
+            id: string;
+            valueType: Option<ParsedType>;
+            value: ParsedExpr;
+        }
+        | { type: "break" }
+        | { type: "continue" }
+        | {
+            type: "loop";
+            body: ParsedExpr;
+        }
+    )
+    & { pos: Pos };
+
 export type ParsedType =
     & (
         | { type: "error" }
+        | { type: "blank" }
         | { type: "id"; value: string }
+        | { type: "array"; valueType: ParsedType; length: ParsedExpr }
     )
     & { pos: Pos };
 
@@ -445,7 +462,21 @@ export class Parser {
         if (this.currentIs("if")) {
             return this.parseIf();
         }
+        if (this.currentIs("loop")) {
+            return this.parseLoop();
+        }
         return this.parseTerminatedStatement();
+    }
+
+    private parseLoop(): ParsedExpr {
+        const pos = this.current.pos;
+        this.step();
+        if (!this.currentIs("{")) {
+            this.error("expeceted '{'", pos);
+            return { type: "error", pos };
+        }
+        const body = this.parseBlock();
+        return { type: "loop", body, pos };
     }
 
     private parseTerminatedStatement(): ParsedExpr {
@@ -459,6 +490,18 @@ export class Parser {
     }
 
     private parseSingleLineStatement(): ParsedExpr {
+        const pos = this.current.pos;
+        if (this.currentIs("break")) {
+            this.step();
+            return { type: "break", pos };
+        }
+        if (this.currentIs("continue")) {
+            this.step();
+            return { type: "continue", pos };
+        }
+        if (this.currentIs("let")) {
+            return this.parseLet();
+        }
         return this.parseAssign();
     }
 
@@ -469,7 +512,16 @@ export class Parser {
             this.error("expected id", pos);
             return { type: "error", pos };
         }
-        const id;
+        const id = this.tokenSlice();
+        this.step();
+        let valueType = None<ParsedType>();
+        if (this.currentIs(":")) {
+            this.step();
+            valueType = Some(this.parseType());
+        }
+        this.consume("=");
+        const value = this.parseExpr();
+        return { type: "let", id, valueType, value, pos };
     }
 
     private parseAssign(): ParsedExpr {
@@ -595,20 +647,12 @@ export class Parser {
                         args.push(this.parseExpr());
                     }
                 }
-                if (!this.currentIs(")")) {
-                    this.error("expected ')'", this.current.pos);
-                    return { type: "error", pos: this.current.pos };
-                }
-                this.step();
+                this.consume(")");
                 subject = { type: "call", subject, args, pos };
             } else if (this.currentIs("[")) {
                 this.step();
                 const value = this.parseExpr();
-                if (!this.currentIs("]")) {
-                    this.error("expected ']'", this.current.pos);
-                    return { type: "error", pos: this.current.pos };
-                }
-                this.step();
+                this.consume("]");
                 subject = { type: "index", subject, value, pos };
             } else {
                 break;
@@ -619,23 +663,33 @@ export class Parser {
 
     private parseOperand(): ParsedExpr {
         const pos = this.current.pos;
+        if (this.currentIs("_")) {
+            this.step();
+            return { type: "blank", pos };
+        }
         if (this.currentIs("id")) {
             const value = this.tokenSlice();
             this.step();
             return { type: "id", value, pos };
         }
         if (this.currentIs("int")) {
-            const value = parseInt(this.tokenSlice().slice(2), 10);
+            const value = parseInt(this.tokenSlice().replace(/_/g, ""), 10);
             this.step();
             return { type: "int", value, pos };
         }
         if (this.currentIs("hex")) {
-            const value = parseInt(this.tokenSlice().slice(2), 16);
+            const value = parseInt(
+                this.tokenSlice().slice(2).replace(/_/g, ""),
+                16,
+            );
             this.step();
             return { type: "int", value, pos };
         }
         if (this.currentIs("binary")) {
-            const value = parseInt(this.tokenSlice().slice(2), 2);
+            const value = parseInt(
+                this.tokenSlice().slice(2).replace(/_/g, ""),
+                2,
+            );
             this.step();
             return { type: "int", value, pos };
         }
@@ -652,12 +706,16 @@ export class Parser {
         if (this.currentIs("(")) {
             this.step();
             const expr = this.parseExpr();
-            if (!this.currentIs(")")) {
-                this.error("expected ')'", pos);
-                return { type: "error", pos };
-            }
-            this.step();
+            this.consume(")");
             return expr;
+        }
+        if (this.currentIs("[")) {
+            this.step();
+            const value = this.parseExpr();
+            this.consume(";");
+            const repeats = this.parseExpr();
+            this.consume("]");
+            return { type: "arrayInitializer", value, repeats, pos };
         }
         if (this.currentIs("{")) {
             return this.parseBlock();
@@ -692,13 +750,7 @@ export class Parser {
             this.error("expeceted '{'", pos);
             return { type: "error", pos };
         }
-        this.step();
-        const truthy = this.parseExpr();
-        if (!this.currentIs("}")) {
-            this.error("expeceted '}'", pos);
-            return { type: "error", pos };
-        }
-        this.step();
+        const truthy = this.parseBlock();
         if (this.done() || this.currentIs("else")) {
             return { type: "if", condition, truthy, falsy: None(), pos };
         }
@@ -707,16 +759,40 @@ export class Parser {
             this.error("expeceted '{'", pos);
             return { type: "error", pos };
         }
-        this.step();
-        const falsy = this.parseExpr();
-        if (!this.currentIs("}")) {
-            this.error("expeceted '}'", pos);
-            return { type: "error", pos };
-        }
-        this.step();
+        const falsy = this.parseBlock();
         return { type: "if", condition, truthy, falsy: Some(falsy), pos };
     }
 
+    private parseType(): ParsedType {
+        const pos = this.current.pos;
+        if (this.currentIs("_")) {
+            this.step();
+            return { type: "blank", pos };
+        }
+        if (this.currentIs("id")) {
+            const value = this.tokenSlice();
+            this.step();
+            return { type: "id", value, pos };
+        }
+        if (this.currentIs("[")) {
+            this.step();
+            const valueType = this.parseType();
+            this.consume(";");
+            const length = this.parseExpr();
+            this.consume("]");
+            return { type: "array", valueType, length, pos };
+        }
+        this.error("expected type", pos);
+        return { type: "error", pos };
+    }
+
+    private consume(token: TokenType) {
+        if (!this.currentIs(token)) {
+            this.error(`expected token, expected '${token}'`, this.current.pos);
+            return { type: "error", pos: this.current.pos };
+        }
+        this.step();
+    }
     private error(message: string, pos: Pos) {
         this.messages.push({ severity: "error", message, pos });
     }
