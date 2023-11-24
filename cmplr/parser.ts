@@ -1,4 +1,4 @@
-import { None, Option, range, Some } from "./utils.ts";
+import { None, Option, range, Result, Some } from "./utils.ts";
 
 export type Pos = {
     index: number;
@@ -388,7 +388,7 @@ export type ParsedExpr =
     & (
         | { type: "error" }
         | { type: "blank" }
-        | { type: "id"; value: string }
+        | { type: "id"; id: string }
         | { type: "int"; value: number }
         | { type: "char"; value: string }
         | { type: "string"; value: string }
@@ -434,6 +434,14 @@ export type ParsedExpr =
             type: "loop";
             body: ParsedExpr;
         }
+        | {
+            type: "fn";
+            id: string;
+            params: ParsedFnParam[];
+            returnType: ParsedType;
+            body: ParsedExpr;
+        }
+        | { type: "return"; value: Option<ParsedExpr> }
     )
     & { pos: Pos };
 
@@ -441,10 +449,16 @@ export type ParsedType =
     & (
         | { type: "error" }
         | { type: "blank" }
-        | { type: "id"; value: string }
+        | { type: "id"; id: string }
         | { type: "array"; valueType: ParsedType; length: ParsedExpr }
     )
     & { pos: Pos };
+
+export type ParsedFnParam = {
+    id: string;
+    valueType: ParsedType;
+    pos: Pos;
+};
 
 export class Parser {
     private lexer: Lexer;
@@ -456,23 +470,63 @@ export class Parser {
     }
 
     public parseStatement(): ParsedExpr {
+        if (this.currentIs("fn")) {
+            return this.parseLoop();
+        }
+        if (this.currentIs("loop")) {
+            return this.parseLoop();
+        }
         if (this.currentIs("{")) {
             return this.parseBlock();
         }
         if (this.currentIs("if")) {
             return this.parseIf();
         }
-        if (this.currentIs("loop")) {
-            return this.parseLoop();
-        }
         return this.parseTerminatedStatement();
     }
+
+    private parseFn(): ParsedExpr {
+        const pos = this.current.pos;
+        this.step();
+        if (!this.currentIs("id")) {
+            this.error("expected id");
+            return { type: "error", pos };
+        }
+        const id = this.tokenSlice();
+        this.step();
+        if (!this.currentIs("(")) {
+            this.error(`expected '"("'`);
+            return { type: "error", pos: this.current.pos };
+        }
+        this.step();
+        const params: ParsedFnParam[] = [];
+        if (!this.done() && !this.currentIs(")")) {
+            const paramResult = this.parseFnParam();
+            if (!paramResult.ok) {
+                return { type: "error", pos: paramResult.error };
+            }
+            params.push(paramResult.value);
+            while (!this.done() && this.currentIs(",")) {
+                this.step();
+                if (this.done() || this.currentIs(")")) {
+                    break;
+                }
+                const paramResult = this.parseFnParam();
+                if (!paramResult.ok) {
+                    return { type: "error", pos: paramResult.error };
+                }
+                params.push(paramResult.value);
+            }
+        }
+    }
+
+    private parseFnParam(): Result<ParsedFnParam, Pos> {}
 
     private parseLoop(): ParsedExpr {
         const pos = this.current.pos;
         this.step();
         if (!this.currentIs("{")) {
-            this.error("expeceted '{'", pos);
+            this.error("expeceted '{'");
             return { type: "error", pos };
         }
         const body = this.parseBlock();
@@ -482,7 +536,7 @@ export class Parser {
     private parseTerminatedStatement(): ParsedExpr {
         const statement = this.parseSingleLineStatement();
         if (!this.currentIs(";")) {
-            this.error("expeceted ';'", this.current.pos);
+            this.error("expeceted ';'");
         } else {
             this.step();
         }
@@ -499,17 +553,30 @@ export class Parser {
             this.step();
             return { type: "continue", pos };
         }
+        if (this.currentIs("return")) {
+            return this.parseReturn();
+        }
         if (this.currentIs("let")) {
             return this.parseLet();
         }
         return this.parseAssign();
     }
 
+    private parseReturn(): ParsedExpr {
+        const pos = this.current.pos;
+        this.step();
+        if (this.done() || this.currentIs(";")) {
+            return { type: "return", value: None(), pos };
+        }
+        const value = this.parseExpr();
+        return { type: "return", value: Some(value), pos };
+    }
+
     private parseLet(): ParsedExpr {
         const pos = this.current.pos;
         this.step();
         if (!this.currentIs("id")) {
-            this.error("expected id", pos);
+            this.error("expected id");
             return { type: "error", pos };
         }
         const id = this.tokenSlice();
@@ -519,7 +586,11 @@ export class Parser {
             this.step();
             valueType = Some(this.parseType());
         }
-        this.consume("=");
+        if (!this.currentIs("=")) {
+            this.error(`expected '"="'`);
+            return { type: "error", pos: this.current.pos };
+        }
+        this.step();
         const value = this.parseExpr();
         return { type: "let", id, valueType, value, pos };
     }
@@ -647,12 +718,20 @@ export class Parser {
                         args.push(this.parseExpr());
                     }
                 }
-                this.consume(")");
+                if (!this.currentIs(")")) {
+                    this.error(`expected '")"'`);
+                    return { type: "error", pos: this.current.pos };
+                }
+                this.step();
                 subject = { type: "call", subject, args, pos };
             } else if (this.currentIs("[")) {
                 this.step();
                 const value = this.parseExpr();
-                this.consume("]");
+                if (!this.currentIs("]")) {
+                    this.error(`expected '"]"'`);
+                    return { type: "error", pos: this.current.pos };
+                }
+                this.step();
                 subject = { type: "index", subject, value, pos };
             } else {
                 break;
@@ -668,9 +747,9 @@ export class Parser {
             return { type: "blank", pos };
         }
         if (this.currentIs("id")) {
-            const value = this.tokenSlice();
+            const id = this.tokenSlice();
             this.step();
-            return { type: "id", value, pos };
+            return { type: "id", id, pos };
         }
         if (this.currentIs("int")) {
             const value = parseInt(this.tokenSlice().replace(/_/g, ""), 10);
@@ -706,15 +785,27 @@ export class Parser {
         if (this.currentIs("(")) {
             this.step();
             const expr = this.parseExpr();
-            this.consume(")");
+            if (!this.currentIs(")")) {
+                this.error(`expected '")"'`);
+                return { type: "error", pos: this.current.pos };
+            }
+            this.step();
             return expr;
         }
         if (this.currentIs("[")) {
             this.step();
             const value = this.parseExpr();
-            this.consume(";");
+            if (!this.currentIs(";")) {
+                this.error(`expected '";"'`);
+                return { type: "error", pos: this.current.pos };
+            }
+            this.step();
             const repeats = this.parseExpr();
-            this.consume("]");
+            if (!this.currentIs("]")) {
+                this.error(`expected '"]"'`);
+                return { type: "error", pos: this.current.pos };
+            }
+            this.step();
             return { type: "arrayInitializer", value, repeats, pos };
         }
         if (this.currentIs("{")) {
@@ -723,7 +814,7 @@ export class Parser {
         if (this.currentIs("if")) {
             return this.parseIf();
         }
-        this.error("expected value", pos);
+        this.error("expected value");
         return { type: "error", pos };
     }
 
@@ -735,8 +826,8 @@ export class Parser {
             statements.push(this.parseStatement());
         }
         if (!this.currentIs("}")) {
-            this.error("expeceted '}'", pos);
-            return { type: "error", pos };
+            this.error(`expected '"}"'`);
+            return { type: "error", pos: this.current.pos };
         }
         this.step();
         return { type: "block", statements, pos };
@@ -747,7 +838,7 @@ export class Parser {
         this.step();
         const condition = this.parseExpr();
         if (!this.currentIs("{")) {
-            this.error("expeceted '{'", pos);
+            this.error("expeceted '{'");
             return { type: "error", pos };
         }
         const truthy = this.parseBlock();
@@ -756,7 +847,7 @@ export class Parser {
         }
         this.step();
         if (!this.currentIs("{")) {
-            this.error("expeceted '{'", pos);
+            this.error("expeceted '{'");
             return { type: "error", pos };
         }
         const falsy = this.parseBlock();
@@ -770,36 +861,37 @@ export class Parser {
             return { type: "blank", pos };
         }
         if (this.currentIs("id")) {
-            const value = this.tokenSlice();
+            const id = this.tokenSlice();
             this.step();
-            return { type: "id", value, pos };
+            return { type: "id", id, pos };
         }
         if (this.currentIs("[")) {
             this.step();
             const valueType = this.parseType();
-            this.consume(";");
+            if (!this.currentIs(";")) {
+                this.error(`expected '";"'`);
+                return { type: "error", pos: this.current.pos };
+            }
+            this.step();
             const length = this.parseExpr();
-            this.consume("]");
+            if (!this.currentIs("]")) {
+                this.error(`expected '"]"'`);
+                return { type: "error", pos: this.current.pos };
+            }
+            this.step();
             return { type: "array", valueType, length, pos };
         }
         this.error("expected type", pos);
         return { type: "error", pos };
     }
 
-    private consume(token: TokenType) {
-        if (!this.currentIs(token)) {
-            this.error(`expected token, expected '${token}'`, this.current.pos);
-            return { type: "error", pos: this.current.pos };
-        }
-        this.step();
-    }
-    private error(message: string, pos: Pos) {
+    private error(message: string, pos: Pos = this.current.pos) {
         this.messages.push({ severity: "error", message, pos });
     }
-    private warning(message: string, pos: Pos) {
+    private warning(message: string, pos: Pos = this.current.pos) {
         this.messages.push({ severity: "warning", message, pos });
     }
-    private note(message: string, pos: Pos) {
+    private note(message: string, pos: Pos = this.current.pos) {
         this.messages.push({ severity: "note", message, pos });
     }
     private step() {
