@@ -1,16 +1,5 @@
-import { None, Option, range, Result, Some } from "./utils.ts";
-
-export type Pos = {
-    index: number;
-    line: number;
-    col: number;
-};
-
-export type Message = {
-    severity: "error" | "warning" | "note";
-    message: string;
-    pos: Pos;
-};
+import { Err, None, Ok, Option, range, Result, Some } from "./utils.ts";
+import { Message, Pos } from "./info.ts";
 
 export type TokenType =
     | "eof"
@@ -24,6 +13,7 @@ export type TokenType =
     | "fn"
     | "return"
     | "let"
+    | "mut"
     | "if"
     | "else"
     | "loop"
@@ -249,7 +239,12 @@ export class Lexer {
     }
 
     private error(message: string, pos: Pos) {
-        this.messages.push({ severity: "error", message, pos });
+        this.messages.push({
+            severity: "error",
+            source: "lexer",
+            message,
+            pos,
+        });
     }
     private step() {
         if (this.done()) return;
@@ -336,6 +331,7 @@ export class Lexer {
         "fn",
         "return",
         "let",
+        "mut",
         "if",
         "else",
         "loop",
@@ -348,7 +344,7 @@ export class Lexer {
     ] as const;
 }
 
-export type UnaryType = "-" | "*" | "!" | "&";
+export type UnaryType = "-" | "*" | "!" | "&" | "&mut";
 
 export type BinaryType =
     | "*"
@@ -393,10 +389,7 @@ export type ParsedExpr =
         | { type: "char"; value: string }
         | { type: "string"; value: string }
         | { type: "arrayInitializer"; value: ParsedExpr; repeats: ParsedExpr }
-        | {
-            type: "block";
-            statements: ParsedExpr[];
-        }
+        | { type: "block"; statements: ParsedExpr[] }
         | {
             type: "if";
             condition: ParsedExpr;
@@ -424,8 +417,7 @@ export type ParsedExpr =
         }
         | {
             type: "let";
-            id: string;
-            valueType: Option<ParsedType>;
+            param: ParsedParam;
             value: ParsedExpr;
         }
         | { type: "break" }
@@ -437,13 +429,20 @@ export type ParsedExpr =
         | {
             type: "fn";
             id: string;
-            params: ParsedFnParam[];
+            params: ParsedParam[];
             returnType: ParsedType;
             body: ParsedExpr;
         }
         | { type: "return"; value: Option<ParsedExpr> }
     )
     & { pos: Pos };
+
+export type ParsedParam = {
+    id: string;
+    mutable: boolean;
+    valueType: Option<ParsedType>;
+    pos: Pos;
+};
 
 export type ParsedType =
     & (
@@ -454,12 +453,6 @@ export type ParsedType =
     )
     & { pos: Pos };
 
-export type ParsedFnParam = {
-    id: string;
-    valueType: ParsedType;
-    pos: Pos;
-};
-
 export class Parser {
     private lexer: Lexer;
     private current: Token;
@@ -469,20 +462,21 @@ export class Parser {
         this.current = this.lexer.next();
     }
 
-    public parseStatement(): ParsedExpr {
-        if (this.currentIs("fn")) {
-            return this.parseLoop();
+    public parseFile(): ParsedExpr[] {
+        const statements: ParsedExpr[] = [];
+        while (!this.done()) {
+            if (this.currentIs("fn")) {
+                statements.push(this.parseFn());
+            } else if (this.currentIs("let")) {
+                statements.push(this.parseLet());
+            } else {
+                this.error("expected 'fn' or 'let'");
+                while (!this.done() && !this.currentIn(["fn", "let"])) {
+                    this.step();
+                }
+            }
         }
-        if (this.currentIs("loop")) {
-            return this.parseLoop();
-        }
-        if (this.currentIs("{")) {
-            return this.parseBlock();
-        }
-        if (this.currentIs("if")) {
-            return this.parseIf();
-        }
-        return this.parseTerminatedStatement();
+        return statements;
     }
 
     private parseFn(): ParsedExpr {
@@ -499,9 +493,9 @@ export class Parser {
             return { type: "error", pos: this.current.pos };
         }
         this.step();
-        const params: ParsedFnParam[] = [];
+        const params: ParsedParam[] = [];
         if (!this.done() && !this.currentIs(")")) {
-            const paramResult = this.parseFnParam();
+            const paramResult = this.parseParam();
             if (!paramResult.ok) {
                 return { type: "error", pos: paramResult.error };
             }
@@ -511,23 +505,51 @@ export class Parser {
                 if (this.done() || this.currentIs(")")) {
                     break;
                 }
-                const paramResult = this.parseFnParam();
+                const paramResult = this.parseParam();
                 if (!paramResult.ok) {
                     return { type: "error", pos: paramResult.error };
                 }
                 params.push(paramResult.value);
             }
         }
+        if (!this.currentIs(")")) {
+            this.error("expected '{'");
+            return { type: "error", pos: this.current.pos };
+        }
+        this.step();
+        if (!this.currentIs("->")) {
+            this.error("expected '->'");
+            return { type: "error", pos: this.current.pos };
+        }
+        this.step();
+        const returnType = this.parseType();
+        if (!this.currentIs("{")) {
+            this.error("expected '{'");
+            return { type: "error", pos: this.current.pos };
+        }
+        const body = this.parseBlock();
+        return { type: "fn", id, params, returnType, body, pos };
     }
 
-    private parseFnParam(): Result<ParsedFnParam, Pos> {}
+    private parseStatement(): ParsedExpr {
+        if (this.currentIs("loop")) {
+            return this.parseLoop();
+        }
+        if (this.currentIs("{")) {
+            return this.parseBlock();
+        }
+        if (this.currentIs("if")) {
+            return this.parseIf();
+        }
+        return this.parseTerminatedStatement();
+    }
 
     private parseLoop(): ParsedExpr {
         const pos = this.current.pos;
         this.step();
         if (!this.currentIs("{")) {
             this.error("expeceted '{'");
-            return { type: "error", pos };
+            return { type: "error", pos: this.current.pos };
         }
         const body = this.parseBlock();
         return { type: "loop", body, pos };
@@ -575,9 +597,29 @@ export class Parser {
     private parseLet(): ParsedExpr {
         const pos = this.current.pos;
         this.step();
+        const paramResult = this.parseParam();
+        if (!paramResult.ok) {
+            return { type: "error", pos: paramResult.error };
+        }
+        if (!this.currentIs("=")) {
+            this.error(`expected '"="'`);
+            return { type: "error", pos: this.current.pos };
+        }
+        this.step();
+        const value = this.parseExpr();
+        return { type: "let", param: paramResult.value, value, pos };
+    }
+
+    private parseParam(): Result<ParsedParam, Pos> {
+        const pos = this.current.pos;
+        let mutable = false;
+        if (this.currentIs("mut")) {
+            mutable = true;
+            this.step();
+        }
         if (!this.currentIs("id")) {
             this.error("expected id");
-            return { type: "error", pos };
+            return Err(pos);
         }
         const id = this.tokenSlice();
         this.step();
@@ -586,13 +628,7 @@ export class Parser {
             this.step();
             valueType = Some(this.parseType());
         }
-        if (!this.currentIs("=")) {
-            this.error(`expected '"="'`);
-            return { type: "error", pos: this.current.pos };
-        }
-        this.step();
-        const value = this.parseExpr();
-        return { type: "let", id, valueType, value, pos };
+        return Ok({ id, mutable, valueType, pos });
     }
 
     private parseAssign(): ParsedExpr {
@@ -693,8 +729,12 @@ export class Parser {
     private parseUnary(): ParsedExpr {
         const pos = this.current.pos;
         if (this.currentIn(["-", "*", "!", "&"])) {
-            const unaryType = this.current.type as UnaryType;
+            let unaryType = this.current.type as UnaryType;
             this.step();
+            if (unaryType === "&" && this.currentIs("mut")) {
+                this.step();
+                unaryType = "&mut";
+            }
             const subject = this.parseUnary();
             return { type: "unary", unaryType, subject, pos };
         }
@@ -886,13 +926,12 @@ export class Parser {
     }
 
     private error(message: string, pos: Pos = this.current.pos) {
-        this.messages.push({ severity: "error", message, pos });
-    }
-    private warning(message: string, pos: Pos = this.current.pos) {
-        this.messages.push({ severity: "warning", message, pos });
-    }
-    private note(message: string, pos: Pos = this.current.pos) {
-        this.messages.push({ severity: "note", message, pos });
+        this.messages.push({
+            severity: "error",
+            source: "parser",
+            message,
+            pos,
+        });
     }
     private step() {
         this.current = this.lexer.next();
