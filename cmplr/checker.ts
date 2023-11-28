@@ -1,6 +1,12 @@
 import { Message, Pos } from "./info.ts";
-import { AssignType, ParsedExpr, UnaryType } from "./parser.ts";
-import { Option } from "./utils.ts";
+import {
+    AssignType,
+    ParsedExpr,
+    ParsedParam,
+    ParsedType,
+    UnaryType,
+} from "./parser.ts";
+import { assertExhausted, None, Option, Result, Some } from "./utils.ts";
 
 export type CheckedExpr =
     & (
@@ -63,17 +69,22 @@ export type CheckedExpr =
         constEval: boolean;
     };
 
+type ParsedExprW<T extends ParsedExpr["type"]> =
+    & { type: T }
+    & ParsedExpr;
+
 export type CheckedParam = {
     id: string;
     mutable: boolean;
-    checkedType: CheckedType;
+    valueType: Option<CheckedType>;
     pos: Pos;
 };
 
 export type CheckedType =
     & (
         | { type: "error" }
-        | { type: "unit" | "i32" | "u32" | "bool" | "char" | "str" }
+        | { type: "blank" }
+        | { type: "unit" | "int" | "i32" | "u32" | "bool" | "char" | "str" }
         | { type: "array"; valueType: CheckedType; length: CheckedExpr }
         | {
             type: "fn";
@@ -100,34 +111,108 @@ type Sym = {
     checkedType: CheckedType;
 };
 
-type SymTable = { [id: string]: Sym };
+export type SymTable = {
+    parent?: SymTable;
+    symbols: { [id: string]: Sym };
+};
 
-class Checker {
-    private symbols: SymTable = {};
+export class Checker {
+    private symTable: SymTable = { symbols: {} };
 
     public constructor(private messages: Message[]) {}
 
-    public checkFile(stmts: ParsedExpr[]): CheckedExpr[] {
-        return stmts.map((stmt) => {
-            if (stmt.type === "fn") {
-                return this.checkFn(stmt);
+    public checkFile(exprs: ParsedExpr[]): CheckedExpr[] {
+        return exprs.map((expr) => {
+            if (expr.type === "fn") {
+                return this.checkFn(expr);
             }
-            if (stmt.type === "let") {
-                return this.checkLet(stmt);
+            if (expr.type === "let") {
+                return this.checkLet(expr, this.symTable);
             }
-            if (stmt.type === "error") {
-                return errorExpr(stmt.pos);
+            if (expr.type === "error") {
+                return errorExpr(expr.pos);
             }
             this.panic(`impossible`);
         });
     }
 
-    private checkFn(stmt: ParsedExpr): CheckedExpr {
+    private checkFn(expr: ParsedExpr): CheckedExpr {
     }
 
-    private checkStatement(stmt: ParsedExpr): CheckedExpr {}
+    private checkLet(
+        expr: ParsedExprW<"let">,
+        symTable: SymTable,
+    ): CheckedExpr {
+        const param = this.checkParam(expr.param, symTable);
+        const value = this.checkExpr(expr.value, symTable);
+    }
 
-    private checkLet(stmt: ParsedExpr): CheckedExpr {}
+    private checkParam(
+        param: ParsedParam,
+        symTable: SymTable,
+    ): CheckedParam {
+        if (param.id in symTable.symbols) {
+            this.error("redefinition", param.pos);
+        }
+        let valueType = None<CheckedType>();
+        if (param.valueType.ok) {
+            valueType = Some(this.checkType(param.valueType.value, symTable));
+        }
+        return {
+            id: param.id,
+            valueType,
+            mutable: param.mutable,
+            pos: param.pos,
+        };
+    }
+
+    private checkExpr(expr: ParsedExpr, symTable: SymTable): CheckedExpr {}
+
+    private checkType(type: ParsedType, symTable: SymTable): CheckedType {
+        const pos = type.pos;
+        if (type.type === "error") {
+            return errorType(pos);
+        }
+        if (type.type === "blank") {
+            this.warning("type inference not implemented", pos);
+            return { type: "blank", pos };
+        }
+        if (type.type === "id") {
+            //"unit" | "i32" | "u32" | "bool" | "char" | "str"
+            if (
+                ["unit", "i32", "u32", "bool", "char", "str"]
+                    .includes(type.id)
+            ) {
+                return {
+                    type: type.id as (CheckedType & { type: "id" })["id"],
+                    pos,
+                };
+            }
+            this.error("user defined types not implemented", pos);
+            return { type: "error", pos };
+        }
+        if (type.type === "array") {
+            const valueType = this.checkType(type.valueType, symTable);
+            const length = this.checkExpr(type.length, symTable);
+            if (!length.constEval) {
+                this.error("length must be const", pos);
+                return { type: "error", pos };
+            }
+            return { type: "array", valueType, length, pos };
+        }
+        assertExhausted(type);
+    }
+
+    private assertCompatible(
+        a: CheckedType,
+        b: CheckedType,
+        symTable: SymTable,
+        switched = false,
+    ): boolean {
+        if (!switched) {
+            return this.assertCompatible(a, b, symTable, true);
+        }
+    }
 
     private panic(message: string, pos?: Pos): never {
         throw new Error(
@@ -140,7 +225,23 @@ class Checker {
     private error(message: string, pos: Pos) {
         this.messages.push({
             severity: "error",
-            source: "parser",
+            source: "checker",
+            message,
+            pos,
+        });
+    }
+    private warning(message: string, pos: Pos) {
+        this.messages.push({
+            severity: "warning",
+            source: "checker",
+            message,
+            pos,
+        });
+    }
+    private note(message: string, pos: Pos) {
+        this.messages.push({
+            severity: "note",
+            source: "checker",
             message,
             pos,
         });

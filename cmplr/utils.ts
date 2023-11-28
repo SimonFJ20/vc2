@@ -56,3 +56,7 @@ export function contains<T>(v: T, vs: readonly T[]): boolean {
 export function range(length: number): number[] {
     return new Array(length).fill(0).map((_, i) => i);
 }
+
+export function assertExhausted(value: never): never {
+    throw new Error("unexhausted");
+}
