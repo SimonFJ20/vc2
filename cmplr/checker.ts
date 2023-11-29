@@ -1,99 +1,14 @@
-import { Message, Pos } from "./info.ts";
-import {
-    AssignType,
-    ParsedExpr,
-    ParsedParam,
-    ParsedType,
-    UnaryType,
-} from "./parser.ts";
+import { Expr } from "./ast.ts";
+import { Type } from "./ast.ts";
+import { Param } from "./ast.ts";
+import { Message } from "./ast.ts";
+import { Pos } from "./ast.ts";
+import { ParsedExpr, ParsedParam, ParsedType } from "./parser.ts";
 import { assertExhausted, Err, None, Option, Result, Some } from "./utils.ts";
-
-export type Expr =
-    & (
-        | { type: "error" }
-        | { type: "blank" }
-        | { type: "id"; id: number }
-        | { type: "int"; value: number }
-        | { type: "char"; value: string }
-        | { type: "string"; value: string }
-        | { type: "arrayInitializer"; value: Expr; repeats: Expr }
-        | { type: "block"; statements: Expr[] }
-        | {
-            type: "if";
-            condition: Expr;
-            truthy: Expr;
-            falsy: Option<Expr>;
-        }
-        | { type: "call"; subject: Expr; args: Expr[] }
-        | { type: "index"; subject: Expr; value: Expr }
-        | {
-            type: "unary";
-            unaryType: UnaryType;
-            subject: Expr;
-        }
-        | {
-            type: "binary";
-            binaryType: BinaryType;
-            left: Expr;
-            right: Expr;
-        }
-        | {
-            type: "assign";
-            assignType: AssignType;
-            subject: Expr;
-            value: Expr;
-        }
-        | {
-            type: "let";
-            param: Param;
-            value: Expr;
-        }
-        | { type: "break" }
-        | { type: "continue" }
-        | {
-            type: "loop";
-            body: Expr;
-        }
-        | {
-            type: "fn";
-            id: string;
-            params: Param[];
-            returnType: Type;
-            body: Expr;
-        }
-        | { type: "return"; value: Option<Expr> }
-    )
-    & {
-        pos: Pos;
-        valueType: Type;
-        constEval: boolean;
-    };
 
 type ParsedExprW<T extends ParsedExpr["type"]> =
     & { type: T }
     & ParsedExpr;
-
-export type Param = {
-    id: string;
-    mutable: boolean;
-    valueType: Option<Type>;
-    pos: Pos;
-};
-
-export type Type =
-    & (
-        | { type: "error" }
-        | { type: "blank" }
-        | { type: "unit" | "int" | "i32" | "u32" | "bool" | "char" | "str" }
-        | { type: "array"; valueType: Type; length: Expr }
-        | {
-            type: "fn";
-            id: number;
-            params: Param[];
-            returnType: Type;
-        }
-    )
-    & { pos: Pos };
 
 const errorExpr = (pos: Pos): Expr => ({
     type: "error",
@@ -102,6 +17,7 @@ const errorExpr = (pos: Pos): Expr => ({
     pos,
 });
 const errorType = (pos: Pos): Type => ({ type: "error", pos });
+const unitType = (pos: Pos): Type => ({ type: "unit", pos });
 
 type Sym = {
     type: "fn";
@@ -144,7 +60,26 @@ export class Checker {
         symTable: SymTable,
     ): Expr {
         const param = this.checkParam(expr.param, symTable);
-        const value = this.checkExpr(expr.value, symTable);
+        const value = this.checkExpr(
+            expr.value,
+            symTable,
+            param.valueType,
+        );
+        if (
+            param.valueType &&
+            !this.typesCompatible(param.valueType, value.valueType, symTable)
+        ) {
+            this.error("types incompatible", expr.pos);
+            return errorExpr(expr.pos);
+        }
+        return {
+            type: "let",
+            param,
+            value,
+            valueType: unitType(expr.pos),
+            constEval: param.mutable && value.constEval,
+            pos: expr.pos,
+        };
     }
 
     private checkParam(
@@ -154,9 +89,9 @@ export class Checker {
         if (param.id in symTable.symbols) {
             this.error("redefinition", param.pos);
         }
-        let valueType = None<Type>();
+        let valueType = undefined;
         if (param.valueType.ok) {
-            valueType = Some(this.checkType(param.valueType.value, symTable));
+            valueType = this.checkType(param.valueType.value, symTable);
         }
         return {
             id: param.id,
@@ -206,7 +141,7 @@ export class Checker {
         assertExhausted(type);
     }
 
-    private assertCompatible(
+    private typesCompatible(
         a: Type,
         b: Type,
         symTable: SymTable,
@@ -217,7 +152,7 @@ export class Checker {
         }
         if (a.type === "blank") {
             if (!switched) {
-                return this.assertCompatible(b, a, symTable, true);
+                return this.typesCompatible(b, a, symTable, true);
             }
             return false;
         }
@@ -233,13 +168,13 @@ export class Checker {
             if (b.type !== "array") {
                 return false;
             }
-            if (!this.assertCompatible(a.valueType, b.valueType, symTable)) {
+            if (!this.typesCompatible(a.valueType, b.valueType, symTable)) {
                 return false;
             }
             return true;
         }
         if (!switched) {
-            return this.assertCompatible(b, a, symTable, true);
+            return this.typesCompatible(b, a, symTable, true);
         }
         throw new Error("unexhaustive");
     }

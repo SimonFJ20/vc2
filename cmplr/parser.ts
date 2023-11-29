@@ -1,5 +1,6 @@
 import { Err, None, Ok, Option, range, Result, Some } from "./utils.ts";
 import { Message, Pos } from "./info.ts";
+import { AssignType, BinaryType, UnaryType } from "./ast.ts";
 
 export type TokenType =
     | "eof"
@@ -344,42 +345,6 @@ export class Lexer {
     ] as const;
 }
 
-export type UnaryType = "-" | "*" | "!" | "&" | "&mut";
-
-export type BinaryType =
-    | "*"
-    | "/"
-    | "%"
-    | "+"
-    | "-"
-    | "<<"
-    | ">>"
-    | "&"
-    | "^"
-    | "|"
-    | "=="
-    | "!="
-    | "<"
-    | ">"
-    | "<="
-    | ">="
-    | "and"
-    | "or"
-    | "=";
-
-export type AssignType =
-    | "="
-    | "+="
-    | "-="
-    | "*="
-    | "/="
-    | "%="
-    | "<<="
-    | ">>="
-    | "&="
-    | "^="
-    | "|=";
-
 export type ParsedExpr =
     & (
         | { type: "error" }
@@ -489,7 +454,7 @@ export class Parser {
         const id = this.tokenSlice();
         this.step();
         if (!this.currentIs("(")) {
-            this.error(`expected '"("'`);
+            this.error(`expected '('`);
             return { type: "error", pos: this.current.pos };
         }
         this.step();
