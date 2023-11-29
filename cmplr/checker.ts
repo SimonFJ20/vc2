@@ -6,9 +6,9 @@ import {
     ParsedType,
     UnaryType,
 } from "./parser.ts";
-import { assertExhausted, None, Option, Result, Some } from "./utils.ts";
+import { assertExhausted, Err, None, Option, Result, Some } from "./utils.ts";
 
-export type CheckedExpr =
+export type Expr =
     & (
         | { type: "error" }
         | { type: "blank" }
@@ -16,56 +16,56 @@ export type CheckedExpr =
         | { type: "int"; value: number }
         | { type: "char"; value: string }
         | { type: "string"; value: string }
-        | { type: "arrayInitializer"; value: CheckedExpr; repeats: CheckedExpr }
-        | { type: "block"; statements: CheckedExpr[] }
+        | { type: "arrayInitializer"; value: Expr; repeats: Expr }
+        | { type: "block"; statements: Expr[] }
         | {
             type: "if";
-            condition: CheckedExpr;
-            truthy: CheckedExpr;
-            falsy: Option<CheckedExpr>;
+            condition: Expr;
+            truthy: Expr;
+            falsy: Option<Expr>;
         }
-        | { type: "call"; subject: CheckedExpr; args: CheckedExpr[] }
-        | { type: "index"; subject: CheckedExpr; value: CheckedExpr }
+        | { type: "call"; subject: Expr; args: Expr[] }
+        | { type: "index"; subject: Expr; value: Expr }
         | {
             type: "unary";
             unaryType: UnaryType;
-            subject: CheckedExpr;
+            subject: Expr;
         }
         | {
             type: "binary";
             binaryType: BinaryType;
-            left: CheckedExpr;
-            right: CheckedExpr;
+            left: Expr;
+            right: Expr;
         }
         | {
             type: "assign";
             assignType: AssignType;
-            subject: CheckedExpr;
-            value: CheckedExpr;
+            subject: Expr;
+            value: Expr;
         }
         | {
             type: "let";
-            param: CheckedParam;
-            value: CheckedExpr;
+            param: Param;
+            value: Expr;
         }
         | { type: "break" }
         | { type: "continue" }
         | {
             type: "loop";
-            body: CheckedExpr;
+            body: Expr;
         }
         | {
             type: "fn";
             id: string;
-            params: CheckedParam[];
-            returnType: CheckedType;
-            body: CheckedExpr;
+            params: Param[];
+            returnType: Type;
+            body: Expr;
         }
-        | { type: "return"; value: Option<CheckedExpr> }
+        | { type: "return"; value: Option<Expr> }
     )
     & {
         pos: Pos;
-        checkedType: CheckedType;
+        valueType: Type;
         constEval: boolean;
     };
 
@@ -73,42 +73,42 @@ type ParsedExprW<T extends ParsedExpr["type"]> =
     & { type: T }
     & ParsedExpr;
 
-export type CheckedParam = {
+export type Param = {
     id: string;
     mutable: boolean;
-    valueType: Option<CheckedType>;
+    valueType: Option<Type>;
     pos: Pos;
 };
 
-export type CheckedType =
+export type Type =
     & (
         | { type: "error" }
         | { type: "blank" }
         | { type: "unit" | "int" | "i32" | "u32" | "bool" | "char" | "str" }
-        | { type: "array"; valueType: CheckedType; length: CheckedExpr }
+        | { type: "array"; valueType: Type; length: Expr }
         | {
             type: "fn";
             id: number;
-            params: CheckedParam[];
-            returnType: CheckedType;
+            params: Param[];
+            returnType: Type;
         }
     )
     & { pos: Pos };
 
-const errorExpr = (pos: Pos): CheckedExpr => ({
+const errorExpr = (pos: Pos): Expr => ({
     type: "error",
-    checkedType: errorType(pos),
+    valueType: errorType(pos),
     constEval: false,
     pos,
 });
-const errorType = (pos: Pos): CheckedType => ({ type: "error", pos });
+const errorType = (pos: Pos): Type => ({ type: "error", pos });
 
 type Sym = {
     type: "fn";
-    checkedType: CheckedType;
+    checkedType: Type;
 } | {
     type: "static";
-    checkedType: CheckedType;
+    checkedType: Type;
 };
 
 export type SymTable = {
@@ -121,7 +121,7 @@ export class Checker {
 
     public constructor(private messages: Message[]) {}
 
-    public checkFile(exprs: ParsedExpr[]): CheckedExpr[] {
+    public checkFile(exprs: ParsedExpr[]): Expr[] {
         return exprs.map((expr) => {
             if (expr.type === "fn") {
                 return this.checkFn(expr);
@@ -136,13 +136,13 @@ export class Checker {
         });
     }
 
-    private checkFn(expr: ParsedExpr): CheckedExpr {
+    private checkFn(expr: ParsedExpr): Expr {
     }
 
     private checkLet(
         expr: ParsedExprW<"let">,
         symTable: SymTable,
-    ): CheckedExpr {
+    ): Expr {
         const param = this.checkParam(expr.param, symTable);
         const value = this.checkExpr(expr.value, symTable);
     }
@@ -150,11 +150,11 @@ export class Checker {
     private checkParam(
         param: ParsedParam,
         symTable: SymTable,
-    ): CheckedParam {
+    ): Param {
         if (param.id in symTable.symbols) {
             this.error("redefinition", param.pos);
         }
-        let valueType = None<CheckedType>();
+        let valueType = None<Type>();
         if (param.valueType.ok) {
             valueType = Some(this.checkType(param.valueType.value, symTable));
         }
@@ -166,9 +166,13 @@ export class Checker {
         };
     }
 
-    private checkExpr(expr: ParsedExpr, symTable: SymTable): CheckedExpr {}
+    private checkExpr(
+        expr: ParsedExpr,
+        symTable: SymTable,
+        imposed?: Type,
+    ): Expr {}
 
-    private checkType(type: ParsedType, symTable: SymTable): CheckedType {
+    private checkType(type: ParsedType, symTable: SymTable): Type {
         const pos = type.pos;
         if (type.type === "error") {
             return errorType(pos);
@@ -178,13 +182,12 @@ export class Checker {
             return { type: "blank", pos };
         }
         if (type.type === "id") {
-            //"unit" | "i32" | "u32" | "bool" | "char" | "str"
             if (
                 ["unit", "i32", "u32", "bool", "char", "str"]
                     .includes(type.id)
             ) {
                 return {
-                    type: type.id as (CheckedType & { type: "id" })["id"],
+                    type: type.id as (Type & { type: "id" })["id"],
                     pos,
                 };
             }
@@ -204,14 +207,41 @@ export class Checker {
     }
 
     private assertCompatible(
-        a: CheckedType,
-        b: CheckedType,
+        a: Type,
+        b: Type,
         symTable: SymTable,
         switched = false,
     ): boolean {
-        if (!switched) {
-            return this.assertCompatible(a, b, symTable, true);
+        if (a.type === "error" || a.type === "int") {
+            return false;
         }
+        if (a.type === "blank") {
+            if (!switched) {
+                return this.assertCompatible(b, a, symTable, true);
+            }
+            return false;
+        }
+        if (
+            ["unit", "u32", "i32", "bool", "char", "str"].includes(a.type)
+        ) {
+            return b.type === a.type || b.type === "blank";
+        }
+        if (a.type === "array") {
+            if (b.type === "blank") {
+                return true;
+            }
+            if (b.type !== "array") {
+                return false;
+            }
+            if (!this.assertCompatible(a.valueType, b.valueType, symTable)) {
+                return false;
+            }
+            return true;
+        }
+        if (!switched) {
+            return this.assertCompatible(b, a, symTable, true);
+        }
+        throw new Error("unexhaustive");
     }
 
     private panic(message: string, pos?: Pos): never {
