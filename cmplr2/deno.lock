@@ -1,0 +1,9 @@
+{
+  "version": "3",
+  "remote": {
+    "https://deno.land/x/moo@0.5.1-deno.2/mod.ts": "fbccad242a370172385c0545886e8051ab4c2cc86b4635798fcf490db718af4e",
+    "https://deno.land/x/moo@0.5.1-deno.2/moo.js": "90e55b04d273feb1ccf0bd7f20df24259715bbfbbffe0e462882c5c5caeb232b",
+    "https://deno.land/x/nearley@2.19.7-deno/lib/nearley.js": "4d69e17885788c78f0aa4776de6ce587a99e1562468fb826c5a5b649a59b9d43",
+    "https://deno.land/x/nearley@2.19.7-deno/mod.ts": "a52f8fe208afc6790bd4167e433f397c578838547bf7161eef144810c28d57db"
+  }
+}

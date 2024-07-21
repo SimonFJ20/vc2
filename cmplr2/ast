@@ -1,0 +1,16 @@
+
+Statement {
+    Expr(Expr)
+}
+
+Expr {
+    Int(Int)
+    String(String)
+}
+
+Int(string, pos: Pos)
+String(string, pos: Pos)
+Name(string, pos: Pos)
+
+Pos(line: number, col: number)
+
