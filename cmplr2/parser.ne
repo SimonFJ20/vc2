@@ -44,7 +44,7 @@ paramTail -> (_ "," _ param):*
 
 body -> value
 
-statement -> expr ";" {% v =>  %}
+statement -> expr ";" {% v => ast.ExprStatement(v[0]) %}
 
 expr -> value
 

@@ -1,16 +1,110 @@
 
+Mod(ModStatement[])
+
+ModStatement {
+    Use(Use)
+    Fn(Fn)
+    Static(Param, Value?)
+}
+
+ModDef(Name, ModBlock?)
+
+ModBlock(ModStatement[])
+
 Statement {
+    Use(Use)
+    Fn(Fn)
+    Let(Let)
+    Loop(Loop)
+    If(If)
+    Assign(
+        subject: Expr,
+        value: Expr,
+        assignType: AssignType,
+    )
     Expr(Expr)
 }
 
+Use(item: Path)
+
+Fn(name: Name, params: Param[], body: Block)
+
+Let(Param, Value?)
+
+Param(name: Name, type_: Type, mutable: boolean)
+
+AssignType {
+    Assign()
+    Increment()
+    Decrement()
+}
+
 Expr {
+    Binary(
+        left: Expr,
+        right: Expr,
+        binaryType: BinaryType,
+    )
+    Not(Expr)
+    Negate(Expr)
+    Refer(Expr)
+    Deref(Expr)
+    Field(subject: Expr, name: Name)
+    Index(subject: Expr, value: Expr)
+    Call(subject: Expr, args: Expr[])
+    Path(Path)
+    Loop(Loop)
+    If(If)
     Int(Int)
     String(String)
 }
+
+BinaryType {
+    Or()
+    And()
+    Xor()
+    LeftShift()
+    RightShift()
+    Add()
+    Subtract()
+    Multiply()
+    Divide()
+    Remainder()
+    Equal()
+    NotEqual()
+    Lt()
+    Gt()
+    LtEqual()
+    GtEqual()
+}
+
+Loop(
+    condition: Expr,
+    body: Block,
+)
+
+If(
+    condition: Expr,
+    truthy: Block,
+    falsy: Block?,
+)
+
+Block(statements: Statement[])
+
+Type {
+    Slice(Type)
+    Array(type_: Type, length: Expr)
+    Path(Path)
+    Name(Name)
+}
+
+Path(subject: Expr, name: Name)
 
 Int(string, pos: Pos)
 String(string, pos: Pos)
 Name(string, pos: Pos)
 
 Pos(line: number, col: number)
+
+// vim: syntax=elm
 
