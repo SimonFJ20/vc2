@@ -22,19 +22,21 @@ const lexer: any = moo.compile({
     name: {
         match: /[a-zA-Z0-9_]+/,
         type: moo.keywords({
-            keyword: ["fn"],
+            keyword: ["fn", "if"],
         }),
     },
 
     lparen: "(",
     rparen: ")",
+    lbrace: "{",
+    rbrace: "}",
     comma: ",",
 });
 %}
 
 @lexer lexer
 
-file -> _ (expr _):*
+file -> _ ((expr | fn) _):*
 
 fn  ->  "fn" __ name _ "(" paramList ")" _ body
 
@@ -46,13 +48,15 @@ body -> value
 
 statement -> expr ";" {% v => ast.ExprStatement(v[0]) %}
 
-expr -> value
+expr -> operand
 
-value       ->  int {% v => ast.IntExpr(v[0]) %}
-            |   string {% v => ast.StringExpr(v[0]) %}
-            |   name {% v => ast.NameExpr(v[0]) %}
-            # |   "(" _ expression _ ")"
-            #         {% v => v %} 
+operand     ->  int {% v => ast.Expr.Int(v[0]) %}
+            |   string {% v => ast.Expr.String(v[0]) %}
+            |   name {% v => ast.Expr.Name(v[0]) %}
+            |   "(" _ expression _ ")"
+                    {% v => v %}
+
+if -> "if" _ expr _ block (_ "else" _ block):?
 
 name -> %name {% v => ast.Name(v[0].value) %}
 int -> %int {% v => ast.Int(v[0].value) %}

@@ -4,7 +4,7 @@ Mod(ModStatement[])
 ModStatement {
     Use(Use)
     Fn(Fn)
-    Static(Param, Value?)
+    Static(Param, Expr?)
 }
 
 ModDef(Name, ModBlock?)
@@ -34,9 +34,9 @@ Let(Param, Value?)
 Param(name: Name, type_: Type, mutable: boolean)
 
 AssignType {
-    Assign()
-    Increment()
-    Decrement()
+    Assign
+    Increment
+    Decrement
 }
 
 Expr {
@@ -60,22 +60,22 @@ Expr {
 }
 
 BinaryType {
-    Or()
-    And()
-    Xor()
-    LeftShift()
-    RightShift()
-    Add()
-    Subtract()
-    Multiply()
-    Divide()
-    Remainder()
-    Equal()
-    NotEqual()
-    Lt()
-    Gt()
-    LtEqual()
-    GtEqual()
+    Or
+    And
+    Xor
+    LeftShift
+    RightShift
+    Add
+    Subtract
+    Multiply
+    Divide
+    Remainder
+    Equal
+    NotEqual
+    Lt
+    Gt
+    LtEqual
+    GtEqual
 }
 
 Loop(
