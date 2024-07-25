@@ -17,4 +17,3 @@ console.log(
     JSON.stringify(result, null, "|   ")
         .replaceAll("|", "\x1b[90m│\x1b[0m"),
 );
-
