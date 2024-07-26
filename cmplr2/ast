@@ -1,21 +1,17 @@
 
-Mod(ModStatement[])
-
-ModStatement {
-    Use(Use)
-    Fn(Fn)
-    Static(Param, Expr?)
-}
-
-ModDef(Name, ModBlock?)
-
-ModBlock(ModStatement[])
+File(Statement[])
 
 Statement {
+    ModDec(Name)
+    ModDef(Name, Block)
     Use(Use)
     Fn(Fn)
-    Let(Let)
+    Return(Value?)
+    Static(Param, Expr?)
+    Let(Param, Expr?)
     Loop(Loop)
+    Break(Value?)
+    Continue
     If(If)
     Assign(
         subject: Expr,
@@ -29,9 +25,7 @@ Use(item: Path)
 
 Fn(name: Name, params: Param[], body: Block)
 
-Let(Param, Value?)
-
-Param(name: Name, type_: Type, mutable: boolean)
+Param(pattern: Pattern, type_: Type?)
 
 AssignType {
     Assign
@@ -47,7 +41,8 @@ Expr {
     )
     Not(Expr)
     Negate(Expr)
-    Refer(Expr)
+    Ref(Expr)
+    RefMut(Expr)
     Deref(Expr)
     Index(subject: Expr, value: Expr)
     Call(subject: Expr, args: Expr[])
@@ -89,7 +84,15 @@ If(
     falsy: Block?,
 )
 
-Block(statements: Statement[])
+Block(
+    statements: Statement[],
+    finalOperand: Expr?,
+)
+
+Pattern {
+    Name(Name)
+    MutName(Name)
+}
 
 Type {
     Slice(Type)
@@ -98,7 +101,12 @@ Type {
     Name(Name)
 }
 
-Path(subject: Expr, name: Name)
+Path {
+    Sub(parent: Path, child: Name)
+    Wildcard(parent: Path)
+    Root(Name)
+    Name(Name)
+}
 
 Int(string, pos: Pos)
 String(string, pos: Pos)

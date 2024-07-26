@@ -1,2 +1,5 @@
-fn hello() 123
+
+fn main() {
+    print("hello world");
+}
 
