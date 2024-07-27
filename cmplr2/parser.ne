@@ -4,6 +4,11 @@
 @{%
 import * as moo from "https://deno.land/x/moo@0.5.1-deno.2/mod.ts";
 import * as ast from "./ast.out.ts";
+import { Pos } from "./info.ts";
+import { Ctx } from "./ctx.ts"
+
+let ctx: Ctx;
+export const setCtx = (_ctx: Ctx) => { ctx = _ctx; }
 
 function tokens(tokens: string): { [key: string]: string } {
     const rules: { [key: string]: string } = {};
@@ -24,15 +29,23 @@ const lexer = moo.compile({
     hex: /0x[0-9a-fA-F]+/,
     int: /0|(?:[1-9][0-9]*)/,
 
-    char: { match: /'(?:[^'\\]|\\[\s\S])'/, value: s => s.slice(1, -1), lineBreaks: true },
-    string: { match: /"(?:[^"\\]|\\[\s\S])*"/, value: s => s.slice(1, -1), lineBreaks: true },
+    char: {
+        match: /'(?:[^'\\]|\\[\s\S])'/,
+        value: s => s.slice(1, -1),
+        lineBreaks: true,
+    },
+    string: {
+        match: /"(?:[^"\\]|\\[\s\S])*"/,
+        value: s => s.slice(1, -1),
+        lineBreaks: true,
+    },
 
-    name: {
+    ident: {
         match: /[a-zA-Z_][a-zA-z0-9_]+/,
         type: moo.keywords({
             keyword: [
-                "fn", "if", "or", "and", "xor", "not", "mod", "use",
-                "loop", "return", "break", "continue",
+                "fn", "if", "or", "and", "xor", "not", "mod",
+                "use", "loop", "return", "break", "continue",
             ],
         }),
     },
@@ -46,11 +59,15 @@ const lexer = moo.compile({
     `),
 });
 
+const pos =
+    ({ line, col, pos }: { line: number, col: number, pos?: undefined }): Pos =>
+        pos ?? { line, col };
+
 const n = (i: number) =>
-    (v) => v[i];
+    (v: any[]) => v[i];
 
 const binary = (kind: ast.BinaryType) =>
-    (v) => ast.Expr.Binary(v[0], v[4], kind);
+    (v: any[]) => ast.Expr.Binary(v[0], v[4], kind);
 %}
 
 @lexer lexer
@@ -64,40 +81,35 @@ seperatedListTail[ELEMENT, SEPERATOR]
     -> (_ $SEPERATOR _ $ELEMENT {% v => v[3][0][0] %}):*
         {% n(0) %}
 
-file    ->  _ (statement _ {% v => v[0]%}):*
-                {% n(1) %}
+file    ->  _ (stmt _ {% v => v[0]%}):*
+                {% v => ast.File(v[1]) %}
 
-statement
-    ->  "mod" __ name _ ";"
-            {% v => ast.Statement.ModDec(v[2]) %}
-    |   "mod" __ name _ block
-            {% v => ast.Statement.ModDef(v[2], v[4]) %}
+stmt
+    ->  "mod" __ ident _ block
+            {% v => ast.Stmt(ast.StmtKind.Mod(v[2], v[4]), pos(v[0])) %}
     |   "use" __ path _ ";"
-            {% v => ast.Statement.Use(v[3]) %}
+            {% v => ast.Stmt(ast.StmtKind.Use(v[3]), pos(v[0])) %}
     |   fn
-            {% v => ast.Statement.Fn(v[0]) %}
+            {% v => ast.Stmt(ast.StmtKind.Fn(v[0]), pos(v[0])) %}
     |   "return" _ ";"
-            {% v => ast.Statement.Return(null) %}
+            {% v => ast.Stmt(ast.StmtKind.Return(null), pos(v[0])) %}
     |   "return" _ expr _ ";"
-            {% v => ast.Statement.Return(v[2]) %}
-    |   "let" __ name _ "=" _ expr _ ";"
-            {% v => ast.Statement.Let(v[2], v[6]) %}
+            {% v => ast.Stmt(ast.StmtKind.Return(v[2]), pos(v[0])) %}
+    |   "let" __ pattern _ "=" _ expr _ ";"
+            {% v => ast.Stmt(ast.StmtKind.Let(v[2], v[6]), pos(v[0])) %}
     |   loop
-            {% v => ast.Statement.Loop(v[0]) %}
+            {% v => ast.Stmt(ast.StmtKind.Loop(v[0]), pos(v[0])) %}
     |   "break" _ ";"
-            {% v => ast.Statement.Break(null) %}
+            {% v => ast.Stmt(ast.StmtKind.Break(null), pos(v[0])) %}
     |   "break" __ expr _ ";"
-            {% v => ast.Statement.Break(v[2]) %}
+            {% v => ast.Stmt(ast.StmtKind.Break(v[2]), pos(v[0])) %}
     |   "continue" _ ";"
-            {% v => ast.Statement.Continue() %}
+            {% v => ast.Stmt(ast.StmtKind.Continue(), pos(v[0])) %}
     |   if
-            {% v => ast.Statement.If(v[0]) %}
-    |   expr _ "=" _ expr _ ";"
-            {% v => ast.Statement.Assign(v[0], v[4]) %}
-    |   expr _ ";"
-            {% v => ast.Statement.Expr(v[0]) %}
+            {% v => ast.Stmt(ast.StmtKind.If(v[0]), pos(v[0])) %}
+    |   assign {% id %}
 
-fn  ->  "fn" __ name _ "(" paramList ")" _ ("->" _ type _ {% n(2) %}):? block
+fn  ->  "fn" __ ident _ "(" paramList ")" _ ("->" _ type _ {% n(2) %}):? block
             {% v => ast.Fn(v[2], v[5], v[8], v[9]) %}
 
 paramList -> _ (param paramTail _ ",":? {% v => [v[0], ...v[1]] %}):? _
@@ -105,8 +117,33 @@ paramList -> _ (param paramTail _ ",":? {% v => [v[0], ...v[1]] %}):? _
 
 paramTail -> (_ "," _ param {% n(3) %}):*
 
-param -> name _ (":" _ type {% n(2) %}):?
-            {% v => ast.Param(v[0], v[4]) %}
+param -> pattern _ (":" _ type {% n(2) %}):?
+            {% v => ast.Param(v[0], v[4], pos(v[0])) %}
+
+pattern ->  ident
+                {% v => ast.Pattern(ast.PatternKind.Ident(v[0]), pos(v[0])) %}
+        |   "mut" __ ident
+                {% v => ast.Pattern(ast.PatternKind.MutIdent(v[1]), pos(v[0])) %}
+
+type    ->  "[" _ type _ "]"
+                {% v => ast.Type(ast.TypeKind.Slice(v[2]), pos(v[0])) %}
+        |   "[" _ type _ ";" _ expr _ "]"
+                {% v => ast.Type(ast.TypeKind.Array(v[2], v[6]), pos(v[0])) %}
+        |   "*" _ "mut" _ type
+                {% v => ast.Type(ast.TypeKind.PtrMut(v[4]), pos(v[0])) %}
+        |   "*" _ type
+                {% v => ast.Type(ast.TypeKind.Ptr(v[2]), pos(v[0])) %}
+        |   path
+                {% v => ast.Type(ast.TypeKind.Path(v[0]), pos(v[0])) %}
+
+assign  ->  expr _ "=" _ expr _ ";"
+                {% v => ast.Stmt(ast.StmtKind.Assign(ast.Assign(v[0], v[4], "Assign")), pos(v[0])) %}
+        |   expr _ "+=" _ expr _ ";"
+                {% v => ast.Stmt(ast.StmtKind.Assign(ast.Assign(v[0], v[4], "Increment")), pos(v[0])) %}
+        |   expr _ "-=" _ expr _ ";"
+                {% v => ast.Stmt(ast.StmtKind.Assign(ast.Assign(v[0], v[4], "Decrement")), pos(v[0])) %}
+        |   expr _ ";"
+                {% v => ast.Stmt(ast.StmtKind.Expr(v[0]), pos(v[0])) %}
 
 expr -> expr1 {% id %}
 
@@ -174,15 +211,13 @@ expr9   ->  expr8 _ "[" _ expr _ "]"
                 {% v => ast.Expr.Call(v[0], v[3]) %}
         |   expr10 {% id %}
 
-expr10   ->  expr9 _ "."  _ name
+expr10   ->  expr9 _ "."  _ ident
                 {% v => ast.Expr.Field(v[0], v[4]) %}
         |   expr11 {% id %}
 
 expr11 -> operand {% id %}
 
-operand     ->  name
-                    {% v => ast.Expr.Name(v[0]) %}
-            |   path
+operand     ->  path
                     {% v => ast.Expr.Path(v[0]) %}
             |   int
                     {% v => ast.Expr.Int(v[0]) %}
@@ -204,32 +239,21 @@ if      ->  "if" _ expr _ block (_ "else" _ block):?
                 {% v => ast.If(v[2], v[4], v[5][3] ?? null) %}
 
 block
-    ->  "{" (_ statement {% n(1) %}):* (_ expr {% n(1) %}):? _ "}"
+    ->  "{" (_ stmt {% n(1) %}):* (_ expr {% n(1) %}):? _ "}"
         {% v => ast.Block(v[1] ?? [], v[2]) %}
 
-type    ->  "[" _ type _ "]"
-                {% v => ast.Type.Slice(v[2]) %}
-        |   "[" _ type _ ";" _ expr _ "]"
-                {% v => ast.Type.Array(v[2], v[6]) %}
-        |   "*" _ "mut" _ type
-                {% v => ast.Type.RefMut(v[4]) %}
-        |   "*" _ type
-                {% v => ast.Type.Ref(v[2]) %}
-        |   path
-                {% v => ast.Type.Path(v[0]) %}
-        |   name
-                {% v => ast.Type.Name(v[0]) %}
+path    ->  pathRoot? ident (_ "::" _ ident {% n(3) %}):*
+                    {% v => ast.Path(
+                        [...v[0], v[1], ...v[2]],
+                        pos(v[0] ?? v[1])
+                    ) %}
 
-path    ->  "::":? _ name (_ "::" _ name {% n(3) %}):+ (_ "::" _ "*"):?
-                {% v => ast.Path(
-                    [v[3], ...v[4]],
-                    v[0].length !== 0,
-                    v[4].length !== 0,
-                ) %}
+pathRoot?   ->  ("::" _):?
+                    {% v => v[0] ? [ctx.addSym("kw::PathRoot")] : []%}
 
-name -> %name {% v => ast.Name(v[0].value) %}
-int -> %int {% v => ast.Int(v[0].value) %}
-string -> %string {% v => ast.String(v[0].value) %}
+ident -> %ident {% v => ast.Ident(ctx.addSym(v[0].value), pos(v[0])) %}
+int -> %int {% v => ast.Int(v[0].value, pos(v[0])) %}
+string -> %string {% v => ast.String(v[0].value, pos(v[0])) %}
 
 _           ->  __:?
 __          ->  (%whitespace

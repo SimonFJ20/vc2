@@ -1,10 +1,19 @@
 
-File(Statement[])
+{%
+import { Pos } from "./info.ts";
+import { Sym } from "./ctx.ts"
+%}
 
-Statement {
-    ModDec(Name)
-    ModDef(Name, Block)
-    Use(Use)
+File(Stmt[])
+
+Stmt(
+    kind: StmtKind,
+    pos: Pos,
+)
+
+StmtKind {
+    Mod(Ident, Block)
+    Use(Path)
     Fn(Fn)
     Return(Expr?)
     Let(Param, Expr)
@@ -12,24 +21,43 @@ Statement {
     Break(Expr?)
     Continue
     If(If)
-    Assign(
-        subject: Expr,
-        value: Expr,
-        assignType: AssignType,
-    )
+    Assign(Assign)
     Expr(Expr)
 }
 
-Use(item: Path)
-
 Fn(
-    name: Name,
+    name: Ident,
     params: Param[],
     returnType: Type?,
     body: Block,
 )
 
-Param(pattern: Pattern, type_: Type?)
+Param(
+    pattern: Pattern,
+    type_: Type?,
+    pos: Pos,
+)
+
+Pattern(
+    kind: PatternKind,
+    pos: Pos,
+)
+
+PatternKind {
+    Ident(Ident)
+    MutIdent(Ident)
+}
+
+Type(
+    kind: TypeKind,
+    pos: Pos,
+)
+
+Assign(
+    subject: Expr,
+    value: Expr,
+    assignType: AssignType,
+)
 
 AssignType {
     Assign
@@ -50,10 +78,10 @@ Expr {
     Deref(Expr)
     Index(subject: Expr, value: Expr)
     Call(subject: Expr, args: Expr[])
-    Field(subject: Expr, name: Name)
+    Field(subject: Expr, name: Ident)
     Loop(Loop)
     If(If)
-    Name(Name)
+    Block(Block)
     Path(Path)
     Int(Int)
     String(String)
@@ -78,10 +106,7 @@ BinaryType {
     GtEqual
 }
 
-Loop(
-    condition: Expr,
-    body: Block,
-)
+Loop(body: Block)
 
 If(
     condition: Expr,
@@ -90,35 +115,26 @@ If(
 )
 
 Block(
-    statements: Statement[],
+    statements: Stmt[],
     finalOperand: Expr?,
 )
 
-Pattern {
-    Name(Name)
-    MutName(Name)
-}
-
-Type {
+TypeKind {
     Slice(Type)
     Array(type_: Type, length: Expr)
     PtrMut(Type)
     Ptr(Type)
     Path(Path)
-    Name(Name)
 }
 
 Path(
-    path: Name[],
-    absolute: boolean,
-    wildcard: boolean,
+    segments: Ident[],
+    pos: Pos,
 )
 
+Ident(Sym, pos: Pos)
 Int(string, pos: Pos)
 String(string, pos: Pos)
-Name(string, pos: Pos)
-
-Pos(line: number, col: number)
 
 // vim: syntax=elm
 
