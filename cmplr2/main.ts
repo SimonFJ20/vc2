@@ -2,13 +2,13 @@ import {
     Grammar,
     Parser,
 } from "https://deno.land/x/nearley@2.19.7-deno/mod.ts";
-import * as parserOut from "./parser.out.ts";
+import * as compiledParser from "./parser.out.ts";
 import compiledParserGrammar from "./parser.out.ts";
 import * as ast from "./ast.out.ts";
 import { Ctx } from "./ctx.ts";
 
 const ctx = new Ctx();
-parserOut.setCtx(ctx);
+compiledParser.setCtx(ctx);
 
 const parser = new Parser(Grammar.fromCompiled(compiledParserGrammar));
 

@@ -1,10 +1,160 @@
 
 {%
 import { Pos } from "./info.ts";
-import { Sym } from "./ctx.ts"
+import { DefId, LocalDefId, ItemLocalId, HirId, Sym } from "./ctx.ts";
+
+type LocalDefIdMap<T> = Map<LocalDefId, T>;
+type ParentingMap = LocalDefIdMap<ItemLocalId>;
+type ItemLocalMap<T> = Map<ItemLocalId, T>;
 %}
 
 Crate()
+
+MaybeOwner {
+    Owner(OwnerInfo)
+    NonOwner(HirId)
+    Phantom
+}
+
+OwnerInfo(
+    nodes: OwnerNodes,
+    parenting: ParentingMap,
+)
+
+TraitCandidate(
+    defId: DefId,
+    importIds: LocalDefId[],
+)
+
+Stmt(
+    kind: StmtKind,
+    pos: Pos,
+)
+
+StmtKind {
+    Mod(Ident, Block)
+    Use(Path)
+    Fn(Fn)
+    Return(Expr?)
+    Let(Param, Expr)
+    Loop(Loop)
+    Break(Expr?)
+    Continue
+    If(If)
+    Assign(Assign)
+    Expr(Expr)
+}
+
+Fn(
+    name: Ident,
+    params: Param[],
+    returnType: Type?,
+    body: Block,
+)
+
+Param(
+    pattern: Pattern,
+    type_: Type?,
+    pos: Pos,
+)
+
+Pattern(
+    kind: PatternKind,
+    pos: Pos,
+)
+
+PatternKind {
+    Ident(Ident)
+    MutIdent(Ident)
+}
+
+Type(
+    kind: TypeKind,
+    pos: Pos,
+)
+
+Assign(
+    subject: Expr,
+    value: Expr,
+    assignType: AssignType,
+)
+
+AssignType {
+    Assign
+    Increment
+    Decrement
+}
+
+Expr {
+    Binary(
+        left: Expr,
+        right: Expr,
+        binaryType: BinaryType,
+    )
+    Not(Expr)
+    Negate(Expr)
+    Ref(Expr)
+    RefMut(Expr)
+    Deref(Expr)
+    Index(subject: Expr, value: Expr)
+    Call(subject: Expr, args: Expr[])
+    Field(subject: Expr, name: Ident)
+    Loop(Loop)
+    If(If)
+    Block(Block)
+    Path(Path)
+    Int(Int)
+    String(String)
+}
+
+BinaryType {
+    Or
+    And
+    Xor
+    LeftShift
+    RightShift
+    Add
+    Subtract
+    Multiply
+    Divide
+    Remainder
+    Equal
+    NotEqual
+    Lt
+    Gt
+    LtEqual
+    GtEqual
+}
+
+Loop(body: Block)
+
+If(
+    condition: Expr,
+    truthy: Block,
+    falsy: Block?,
+)
+
+Block(
+    statements: Stmt[],
+    finalOperand: Expr?,
+)
+
+TypeKind {
+    Slice(Type)
+    Array(type_: Type, length: Expr)
+    PtrMut(Type)
+    Ptr(Type)
+    Path(Path)
+}
+
+Path(
+    segments: Ident[],
+    pos: Pos,
+)
+
+Ident(Sym, pos: Pos)
+Int(string, pos: Pos)
+String(string, pos: Pos)
 
 // vim: syntax=elm
 

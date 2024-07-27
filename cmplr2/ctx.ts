@@ -6,6 +6,18 @@ export class Ctx {
     }
 }
 
+export type DefId = number & { readonly tag: unique symbol };
+export const DefId = (v: number) => v as DefId;
+
+export type LocalDefId = number & { readonly tag: unique symbol };
+export const LocalDefId = (v: number) => v as LocalDefId;
+
+export type ItemLocalId = number & { readonly tag: unique symbol };
+export const ItemLocalId = (v: number) => v as ItemLocalId;
+
+export type HirId = number & { readonly tag: unique symbol };
+export const HirId = (v: number) => v as HirId;
+
 export type Sym = number & { readonly tag: unique symbol };
 export const Sym = (v: number) => v as Sym;
 
