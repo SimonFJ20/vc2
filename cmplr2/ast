@@ -6,11 +6,10 @@ Statement {
     ModDef(Name, Block)
     Use(Use)
     Fn(Fn)
-    Return(Value?)
-    Static(Param, Expr?)
-    Let(Param, Expr?)
+    Return(Expr?)
+    Let(Param, Expr)
     Loop(Loop)
-    Break(Value?)
+    Break(Expr?)
     Continue
     If(If)
     Assign(
@@ -23,7 +22,12 @@ Statement {
 
 Use(item: Path)
 
-Fn(name: Name, params: Param[], body: Block)
+Fn(
+    name: Name,
+    params: Param[],
+    returnType: Type?,
+    body: Block,
+)
 
 Param(pattern: Pattern, type_: Type?)
 
@@ -47,9 +51,10 @@ Expr {
     Index(subject: Expr, value: Expr)
     Call(subject: Expr, args: Expr[])
     Field(subject: Expr, name: Name)
-    Path(Path)
     Loop(Loop)
     If(If)
+    Name(Name)
+    Path(Path)
     Int(Int)
     String(String)
 }
@@ -97,16 +102,17 @@ Pattern {
 Type {
     Slice(Type)
     Array(type_: Type, length: Expr)
+    PtrMut(Type)
+    Ptr(Type)
     Path(Path)
     Name(Name)
 }
 
-Path {
-    Sub(parent: Path, child: Name)
-    Wildcard(parent: Path)
-    Root(Name)
-    Name(Name)
-}
+Path(
+    path: Name[],
+    absolute: boolean,
+    wildcard: boolean,
+)
 
 Int(string, pos: Pos)
 String(string, pos: Pos)

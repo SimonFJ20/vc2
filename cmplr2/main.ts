@@ -13,6 +13,9 @@ if (Deno.args.length < 1) {
 const text = await Deno.readTextFile(Deno.args[0]);
 parser.feed(text);
 const result = parser.results[0];
+if (parser.results.length > 1) {
+    console.log("Ambigious parse:", parser.results.length, "results");
+}
 console.log(
     JSON.stringify(result, null, "|   ")
         .replaceAll("|", "\x1b[90m│\x1b[0m"),
